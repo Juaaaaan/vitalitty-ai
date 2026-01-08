@@ -3,18 +3,24 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { LoginForm } from "@/components/layout/login-form";
+import Image from "next/image";
+import { ErrorLoginCodes } from "@/models/authErrors";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<ErrorLoginCodes | null>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setError({
+      code: "",
+      message: "",
+    });
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -22,7 +28,10 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError({
+        code: error.code || "",
+        message: error.message || "",
+      });
       setLoading(false);
     } else {
       router.push("/dashboard");
@@ -31,56 +40,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
-        <div>
-          <h2 className="text-center text-3xl font-bold">Vitalitty AI</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Inicia sesión para continuar
-          </p>
+    <div className="grid min-h-svh lg:grid-cols-2">
+      <div className="flex flex-col gap-4 p-6 md:p-10">
+        <div className="flex justify-center gap-2 md:justify-start">
+          <a href="#" className="flex items-center gap-2 font-medium">
+            <div className="text-primary-foreground flex size-6 items-center justify-center rounded-md">
+              <Image src="/logo_azul.png" alt="Logo" width={24} height={24} />
+            </div>
+            Vitalitty AI
+          </a>
         </div>
-
-        <form onSubmit={handleLogin} className="mt-8 space-y-6">
-          {error && (
-            <div className="bg-red-50 text-red-500 p-3 rounded">{error}</div>
-          )}
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+        <div className="flex flex-1 items-center justify-center">
+          <div className="w-full max-w-xs">
+            <LoginForm
+              onSubmit={handleLogin}
+              email={email}
+              setEmail={setEmail}
+              password={password}
+              setPassword={setPassword}
+              loading={loading}
+              error={error}
             />
           </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
-          </button>
-        </form>
+        </div>
+      </div>
+      <div className="bg-muted relative hidden lg:block">
+        <Image
+          src="/home_vitalitty-ai.jpg"
+          alt="Landscape picture"
+          width={800}
+          height={1000}
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+        />
       </div>
     </div>
   );
