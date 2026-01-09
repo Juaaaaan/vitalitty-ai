@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import { MainLayout } from "@/components/layout/main-layout";
+import { cookies } from "next/headers";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -27,9 +27,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${inter.variable} ${interTight.variable} antialiased`}>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <MainLayout>{children}</MainLayout>
       </body>
     </html>
   );
