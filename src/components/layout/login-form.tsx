@@ -38,7 +38,7 @@ export function LoginForm({
 }: LoginFormProps) {
   return (
     <form className={cn("flex flex-col gap-6", className)} {...props}>
-      {error && (
+      {error && error.code && error.message && (
         <div className="bg-red-50 text-red-500 p-3 rounded">
           {translateError(error.code)}
         </div>

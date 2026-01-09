@@ -27,13 +27,14 @@ export default function LoginPage() {
       password,
     });
 
-    if (error) {
+    if (error && error.code && error.message) {
       setError({
-        code: error.code || "",
-        message: error.message || "",
+        code: error.code,
+        message: error.message,
       });
       setLoading(false);
     } else {
+      setError(null);
       router.push("/dashboard");
       router.refresh();
     }
