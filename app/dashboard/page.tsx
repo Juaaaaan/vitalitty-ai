@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import Header from "@/components/layout/header";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
@@ -33,7 +32,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen p-8">
-      <Header />
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
