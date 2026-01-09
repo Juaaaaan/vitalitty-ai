@@ -108,8 +108,8 @@ export default function DashboardPage() {
           <h3 className="text-xl font-light mb-2">Buscador de pacientes</h3>
           <Separator orientation="horizontal" className="mb-8" />
           <form onSubmit={handleSubmitSearch}>
-            <div className="flex gap-5 items-center align-center my-4 flex-wrap">
-              <Field className="w-full md:w-1/4">
+            <div className="flex gap-5 items-center align-center mt-4 flex-wrap">
+              <Field className="w-full md:w-1/5">
                 <FieldLabel htmlFor="name">Nombre o apellidos</FieldLabel>
                 <Input
                   id="name"
@@ -129,7 +129,7 @@ export default function DashboardPage() {
                   placeholder="mail@vitalitty.es"
                 />
               </Field>
-              <Field className="w-full md:w-1/4">
+              <Field className="w-full md:w-1/5">
                 <FieldLabel htmlFor="age">Edad</FieldLabel>
                 <Input
                   id="age"
@@ -139,7 +139,7 @@ export default function DashboardPage() {
                   placeholder="Edad"
                 />
               </Field>
-              <Field className="w-full md:w-1/4">
+              <Field className="w-full md:w-1/5">
                 <FieldLabel htmlFor="weight">Peso</FieldLabel>
                 <Input
                   id="weight"
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                   placeholder="Peso en KG"
                 />
               </Field>
-              <Field className="w-full md:w-1/4">
+              <Field className="w-full md:w-1/5">
                 <FieldLabel htmlFor="Gender">Sexo</FieldLabel>
                 <Select
                   defaultValue=""
@@ -166,12 +166,12 @@ export default function DashboardPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field className="w-full md:w-1/4">
+              <Field className="w-full md:w-1/5">
                 <FieldLabel htmlFor="date">Fecha de nacimiento</FieldLabel>
                 <DatePicker value={birthDate} onChange={setBirthDate} />
               </Field>
             </div>
-            <div className="flex justify-end mt-8">
+            <div className="flex justify-end mb-8">
               <div className="flex justify-end w-2xs">
                 <Button type="submit">Buscar</Button>
               </div>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        <div>
+        <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)]">
           <Table>
             <TableHeader>
               {tableUsers.getHeaderGroups().map((headerGroup) => (
