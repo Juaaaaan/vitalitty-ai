@@ -30,7 +30,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { COLUMNS_PATIENTS } from "@/consts/dashboard";
+import { COLUMNS_PATIENTS } from "@/constants/dashboard";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
