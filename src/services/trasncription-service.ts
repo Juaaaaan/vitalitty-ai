@@ -8,21 +8,39 @@ export async function transcribeAudio(
     const arrayBuffer = await audioBlob.arrayBuffer();
     const file = new File([arrayBuffer], "audio.webm", { type: "audio/webm" });
 
-    console.log("in progress transcribing...");
     const transcription = await openai.audio.transcriptions.create({
       file,
       model: "whisper-1",
-      language: "en",
-      response_format: "text",
+      language: "es",
+      response_format: "json",
       temperature: 0,
     });
-    console.log("finished transcribing");
+
+    console.log({ transcription });
+
+    // With the trasncription I need to call ChatGPT to prompt the transcription with the goal: get a diet plan for the patient
+    const chatCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Usted es nutricionista titulado y dietista profesional. Su objetivo es desarrollar un plan de alimentación para el paciente basándose en la siguiente transcripción.",
+        },
+        {
+          role: "user",
+          content: transcription.text,
+        },
+      ],
+    });
+
+    console.log({ chatCompletion });
 
     return {
-      text: transcription,
+      text: chatCompletion.choices[0].message.content ?? "",
     };
   } catch (error) {
-    console.error("Transcription error:", error);
     return {
       text: "",
       error:
