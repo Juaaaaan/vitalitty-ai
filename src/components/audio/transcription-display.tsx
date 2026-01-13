@@ -14,7 +14,7 @@ export function TranscriptionDisplay({
     return (
       <div className="flex items-center justify-center gap-2 text-gray-600">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>transcribiendo...</span>
+        <span>transcribiendo y generando dieta...</span>
       </div>
     );
   }

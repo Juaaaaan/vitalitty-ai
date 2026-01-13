@@ -6,13 +6,6 @@ import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import transcribeAction from "../actions/transcribe.action";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Patient } from "@/models/dashboard/patients";
 import { supabase } from "../../lib/supabase/client";
 import { ComboBox } from "@/components/layout/app-comboBox";
@@ -96,8 +89,8 @@ export default function DietsPage() {
         <div className="flex flex-col">
           <section>
             <span className="text-md font-light">
-              1. Lo primero que debes hacer es seleccionar si es un paciente
-              nuevo o un paciente existente
+              <b>1.</b> Lo primero que debes hacer es seleccionar si es un
+              paciente nuevo o un paciente existente
             </span>
             <div className="flex flex-row m-4 items-center">
               <span className="mr-4">¿Es nuevo?</span>
@@ -112,7 +105,7 @@ export default function DietsPage() {
             <div>
               <section>
                 <span className="text-md font-light">
-                  2. Luego, debes seleccionar el usuario
+                  <b>2.</b> Luego, debes seleccionar el usuario
                 </span>
                 <div className="flex flex-row m-4 items-center">
                   <p className="mr-4">Puedes seleccionar y buscar el usuario</p>
@@ -121,8 +114,8 @@ export default function DietsPage() {
               </section>
               <section>
                 <span className="text-md font-light">
-                  3. Te aparecerá información relevante del usuarios así como
-                  sus anteriores dietas
+                  <b>3.</b> Te aparecerá información relevante del usuarios así
+                  como sus anteriores dietas
                 </span>
               </section>
             </div>
@@ -134,9 +127,15 @@ export default function DietsPage() {
         </div>
         <div className="flex flex-col">
           <div className="w-full space-y-8">
-            <h3 className="text-2xl font-light">
-              Grabación y transcripción del paciente
-            </h3>
+            <div>
+              <h3 className="text-2xl font-light">
+                Grabación y transcripción del paciente
+              </h3>
+              <span className="text-md font-light">
+                Automáticamente se añadirá la información del paciente y se
+                gestionará la creación de la dieta
+              </span>
+            </div>
 
             <AudioRecorder
               onRecordingComplete={handleRecordingComplete}
