@@ -20,29 +20,6 @@ import {
 } from "@/components/ui/popover";
 import { Patient } from "@/models/dashboard/patients";
 
-const frameworks = [
-  {
-    value: "next.js",
-    label: "Next.js",
-  },
-  {
-    value: "sveltekit",
-    label: "SvelteKit",
-  },
-  {
-    value: "nuxt.js",
-    label: "Nuxt.js",
-  },
-  {
-    value: "remix",
-    label: "Remix",
-  },
-  {
-    value: "astro",
-    label: "Astro",
-  },
-];
-
 export function ComboBox({ users }: { users: Patient[] }) {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
