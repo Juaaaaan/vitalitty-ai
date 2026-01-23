@@ -20,7 +20,13 @@ import {
 } from "@/components/ui/popover";
 import { Patient } from "@/models/dashboard/patients";
 
-export function ComboBox({ users }: { users: Patient[] }) {
+export function ComboBox({
+  users,
+  onSelect,
+}: {
+  users: Patient[];
+  onSelect?: (id: string) => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
 
@@ -51,13 +57,16 @@ export function ComboBox({ users }: { users: Patient[] }) {
                   value={user.name_surnames}
                   onSelect={(currentValue) => {
                     setValue(currentValue === value ? "" : currentValue);
+                    if (onSelect) onSelect(user.id);
                     setOpen(false);
                   }}
                 >
                   <CheckIcon
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === user.id ? "opacity-100" : "opacity-0"
+                      value === user.name_surnames
+                        ? "opacity-100"
+                        : "opacity-0",
                     )}
                   />
                   {user.name_surnames}

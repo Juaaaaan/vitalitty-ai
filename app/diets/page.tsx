@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AudioRecorder } from "@/components/audio/audio-recorder";
 import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import transcribeAction from "../actions/transcribe.action";
+import { processConsultation } from "../actions/save-consultation.action";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Patient } from "@/models/dashboard/patients";
@@ -11,34 +12,65 @@ import { supabase } from "../../lib/supabase/client";
 import { ComboBox } from "@/components/layout/app-comboBox";
 
 export default function DietsPage() {
-  useEffect(() => {
-    handleSelectPatient();
-  }, []);
-
   const [transcription, setTranscription] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Processing extraction
   const [error, setError] = useState<string>();
   const [isPatientNew, setIsPatientNew] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<
+    string | undefined
+  >();
+
+  useEffect(() => {
+    handleSelectPatient();
+  }, []);
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     setError(undefined);
 
     try {
-      // THIS IS WHERE OPENAI COME INTO PLAY
+      // 1. Transcribe
       const result = await transcribeAction(audioBlob);
+
       if (result.error) {
         setError(result.error);
+        setIsTranscribing(false);
+        return;
+      }
+
+      setTranscription(result.text);
+      setIsTranscribing(false); // Stop transcribing spinner, start processing spinner?
+
+      // 2. Process & Save (Extract Data)
+      setIsProcessing(true);
+
+      // Determine if we have a selected patient (only if "Exists" switch is ON)
+      const patientIdToLink = isPatientNew ? selectedPatientId : undefined;
+
+      const saveResult = await processConsultation(
+        result.text,
+        patientIdToLink,
+      );
+
+      if (!saveResult.success) {
+        setError(saveResult.error || "Failed to process consultation");
       } else {
-        setTranscription(result.text);
+        console.log(
+          "Consultation processed successfully!",
+          saveResult.patientId,
+        );
+        // Maybe we can append a success message to the transcription or show a toast
+        // For now, let's just make sure we don't error out.
       }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to transcribe audio"
+        err instanceof Error ? err.message : "Failed to transcribe audio",
       );
-    } finally {
       setIsTranscribing(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -49,6 +81,8 @@ export default function DietsPage() {
 
   const checkIsNewPatient = (checked: boolean) => {
     setIsPatientNew(checked);
+    // Reset selection if toggled
+    if (!checked) setSelectedPatientId(undefined);
     return checked;
   };
 
@@ -71,7 +105,7 @@ export default function DietsPage() {
             ...patient,
             value: patient.id,
             label: patient.name_surnames,
-          })) as Patient[]
+          })) as Patient[],
         );
       })
       .finally(() => console.log("finally"));
@@ -95,6 +129,7 @@ export default function DietsPage() {
             <div className="flex flex-row m-4 items-center">
               <span className="mr-4">¿Es nuevo?</span>
               <Switch
+                checked={isPatientNew}
                 onCheckedChange={(checked) => checkIsNewPatient(checked)}
               />
               <span className="ml-4">¿Existe?</span>
@@ -109,7 +144,7 @@ export default function DietsPage() {
                 </span>
                 <div className="flex flex-row m-4 items-center">
                   <p className="mr-4">Puedes seleccionar y buscar el usuario</p>
-                  <ComboBox users={patients} />
+                  <ComboBox users={patients} onSelect={setSelectedPatientId} />
                 </div>
               </section>
               <section>
@@ -144,9 +179,14 @@ export default function DietsPage() {
 
             <TranscriptionDisplay
               text={transcription}
-              isLoading={isTranscribing}
+              isLoading={isTranscribing || isProcessing}
               error={error}
             />
+            {isProcessing && (
+              <p className="text-sm text-gray-500 animate-pulse">
+                Analizando información y guardando datos...
+              </p>
+            )}
           </div>
         </div>
       </div>

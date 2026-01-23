@@ -6,6 +6,14 @@ import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/layout/login-form";
 import Image from "next/image";
 import { ErrorLoginCodes } from "@/models/authErrors";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

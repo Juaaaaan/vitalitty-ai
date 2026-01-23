@@ -3,6 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ErrorLoginCodes } from "@/models/authErrors";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { Label } from "../ui/label";
 
 interface LoginFormProps extends React.ComponentProps<"form"> {
   email: string;
@@ -64,12 +76,36 @@ export function LoginForm({
         <Field>
           <div className="flex items-center">
             <FieldLabel htmlFor="password">Contraseña</FieldLabel>
-            <a
-              href="#"
-              className="ml-auto text-sm underline-offset-4 hover:underline"
-            >
-              ¿Olvidó su contraseña?
-            </a>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <span className="ml-auto text-sm underline-offset-4 hover:underline bg-transparent border-none p-0 cursor-pointer">
+                  ¿Olvidó su contraseña?
+                </span>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>¿Olvidó su contraseña?</DialogTitle>
+                  <DialogDescription>
+                    Introduzca su correo electrónico y te enviaremos un código
+                    de recuperación
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center gap-2">
+                  <div className="grid flex-1 gap-2">
+                    <Label htmlFor="link" className="sr-only">
+                      Email
+                    </Label>
+                    <Input placeholder="m@vitalitty.es" id="link" />
+                  </div>
+                </div>
+                <DialogFooter className="sm:justify-end">
+                  <DialogClose asChild>
+                    <Button type="button">Enviar</Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
           <Input
             id="password"
