@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ErrorLoginCodes } from "@/models/authErrors";
-import { useState } from "react";
 import {
   Dialog,
   DialogClose,

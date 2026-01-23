@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import { MainLayout } from "@/components/layout/main-layout";
-import { cookies } from "next/headers";
 
 const inter = Inter({
   variable: "--font-geist-sans",
