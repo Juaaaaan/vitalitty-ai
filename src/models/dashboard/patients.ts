@@ -10,4 +10,6 @@ export interface Patient {
   height: number;
   weight: number;
   created_by: string;
+  value?: string;
+  label?: string;
 }

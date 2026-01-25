@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../../lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -29,8 +29,16 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
+  ColumnDef,
 } from "@tanstack/react-table";
-import { COLUMNS_PATIENTS } from "@/consts/dashboard";
+import { COLUMNS_PATIENTS } from "@/constants/dashboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontalIcon } from "lucide-react";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
@@ -44,9 +52,46 @@ export default function DashboardPage() {
   const [gender, setGender] = useState<string>("");
   const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
 
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // Definir las columnas con la columna de acciones
+  const columns = useMemo<ColumnDef<Patient>[]>(
+    () => [
+      ...COLUMNS_PATIENTS,
+      {
+        id: "actions",
+        header: "Acciones",
+        cell: ({ row }) => {
+          const patient = row.original;
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreHorizontalIcon className="h-4 w-4" />
+                  <span className="sr-only">Abrir menú</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    router.push(`/dashboard/patient/${patient.id}`);
+                  }}
+                >
+                  Detalle
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
   const tableUsers = useReactTable({
     data: patients,
-    columns: COLUMNS_PATIENTS,
+    columns: columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
@@ -69,6 +114,7 @@ export default function DashboardPage() {
 
   const handleSubmitSearch = (ev: React.FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
+    setLoading(true);
     const getPatients = async () => {
       const { data, error } = await supabase.from("patients").select("*");
       data?.map((patient) => {
@@ -84,11 +130,13 @@ export default function DashboardPage() {
         }
         setPatients(data as Patient[]);
       })
-      .finally(() => console.log("finally"));
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-semibold">Bienvenid@</h1>
@@ -173,7 +221,9 @@ export default function DashboardPage() {
             </div>
             <div className="flex justify-end mb-8">
               <div className="flex justify-end w-2xs">
-                <Button type="submit">Buscar</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Buscando..." : "Buscar"}
+                </Button>
               </div>
             </div>
           </form>
@@ -191,7 +241,7 @@ export default function DashboardPage() {
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                       </TableHead>
                     );
@@ -210,7 +260,7 @@ export default function DashboardPage() {
                       <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         )}
                       </TableCell>
                     ))}

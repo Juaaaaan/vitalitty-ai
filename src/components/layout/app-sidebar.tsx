@@ -35,7 +35,7 @@ const data = {
         },
         {
           title: "Creación de dietas",
-          url: "#",
+          url: "/diets",
         },
       ],
     },
