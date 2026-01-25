@@ -8,6 +8,16 @@ export interface PatientData {
   weight?: number;
 }
 
+export interface PatientDataParsed {
+  nameSurnames: string;
+  mail?: string;
+  age?: number;
+  phone?: string;
+  gender?: string;
+  height?: number;
+  weight?: number;
+}
+
 export interface ConsultationData {
   objetivo_calorias?: number;
   objetivo_descripcion?: string;

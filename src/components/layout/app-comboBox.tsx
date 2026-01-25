@@ -37,7 +37,7 @@ export function ComboBox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between"
+          className="w-[350px] justify-between"
         >
           {value
             ? users.find((user) => user.name_surnames === value)?.name_surnames
@@ -45,7 +45,7 @@ export function ComboBox({
           <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[350px]">
         <Command>
           <CommandInput placeholder="Buscando usuario..." />
           <CommandList>

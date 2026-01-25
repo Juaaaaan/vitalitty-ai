@@ -17,15 +17,14 @@ export async function extractPatientData(transcription: string): Promise<{
     messages: [
       {
         role: "system",
-        content: `You are an expert nutritionist assistant. Your goal is to extract structured patient and consultation data from a transcription of a consultation.
+        content: `Eres un nutricionista experto que extrae información relevante de una transcripción de una consulta.
         
-        The user will provide a transcription text. You must extract two distinct objects:
-        1. 'patient': Basic personal information.
-        2. 'consultation': Medical, nutritional, and lifestyle details.
-
-        If a field is not mentioned in the text, leave it as null or undefined.
-        For 'gender', try to infer 'M' (Male) or 'F' (Female) from context if possible, otherwise 'O'.
-        `,
+        El usuario proporcionará una transcripción de texto. Debes extraer dos objetos distintos:
+        1. 'patient': Información personal básica.
+        2. 'consultation': Detalles médicos, nutricionales y de estilo de vida.
+        
+        Si un campo no se menciona en el texto, déjalo como null o undefined.
+        Para 'gender', intenta inferir 'M' (Male) o 'F' (Female) del contexto si es posible, de lo contrario 'O'.`,
       },
       {
         role: "user",
@@ -46,52 +45,98 @@ export async function extractPatientData(transcription: string): Promise<{
                   type: "string",
                   description: "Full name of the patient",
                 },
-                mail: { type: "string" },
-                age: { type: "number" },
-                phone: { type: "string" },
-                gender: { type: "string", enum: ["M", "F", "O"] },
+                mail: { type: ["string", "null"] },
+                age: { type: ["number", "null"] },
+                phone: { type: ["string", "null"] },
+                gender: {
+                  type: ["string", "null"],
+                  enum: ["M", "F", "O", null],
+                },
                 height: {
-                  type: "number",
+                  type: ["number", "null"],
                   description:
                     "Height in cm or meters (normalize to cm if possible, but schema implies numeric)",
                 },
-                weight: { type: "number", description: "Weight in kg" },
+                weight: {
+                  type: ["number", "null"],
+                  description: "Weight in kg",
+                },
               },
-              required: ["name_surnames"],
+              required: [
+                "name_surnames",
+                "mail",
+                "age",
+                "phone",
+                "gender",
+                "height",
+                "weight",
+              ],
+              additionalProperties: false,
             },
             consultation: {
               type: "object",
               properties: {
-                objetivo_calorias: { type: "number" },
-                objetivo_descripcion: { type: "string" },
-                objetivo_tipo: { type: "array", items: { type: "string" } },
-                objetivo_justificacion: { type: "string" },
-                resultados_analiticos: { type: "string" },
-                suplementos: { type: "string" },
+                objetivo_calorias: { type: ["number", "null"] },
+                objetivo_descripcion: { type: ["string", "null"] },
+                objetivo_tipo: {
+                  type: ["array", "null"],
+                  items: { type: "string" },
+                },
+                objetivo_justificacion: { type: ["string", "null"] },
+                resultados_analiticos: { type: ["string", "null"] },
+                suplementos: { type: ["string", "null"] },
                 alergias_intolerancias: {
-                  type: "array",
+                  type: ["array", "null"],
                   items: { type: "string" },
                 },
-                cirugias: { type: "string" },
-                medicacion: { type: "string" },
-                patologias: { type: "array", items: { type: "string" } },
-                actividad_fisica_duracion: { type: "string" },
-                actividad_fisica_tipo: { type: "string" },
-                actividad_fisica_perfil: { type: "string" },
-                actividad_diaria: { type: "string" },
-                horario_dia_normal: { type: "string" },
-                horas_sueno: { type: "number" },
-                cantidad_agua: { type: "string" },
+                cirugias: { type: ["string", "null"] },
+                medicacion: { type: ["string", "null"] },
+                patologias: {
+                  type: ["array", "null"],
+                  items: { type: "string" },
+                },
+                actividad_fisica_duracion: { type: ["string", "null"] },
+                actividad_fisica_tipo: { type: ["string", "null"] },
+                actividad_fisica_perfil: { type: ["string", "null"] },
+                actividad_diaria: { type: ["string", "null"] },
+                horario_dia_normal: { type: ["string", "null"] },
+                horas_sueno: { type: ["number", "null"] },
+                cantidad_agua: { type: ["string", "null"] },
                 gustos_preferencias: {
-                  type: "array",
+                  type: ["array", "null"],
                   items: { type: "string" },
                 },
-                alimentos_evitar: { type: "array", items: { type: "string" } },
+                alimentos_evitar: {
+                  type: ["array", "null"],
+                  items: { type: "string" },
+                },
                 alimentos_priorizar: {
-                  type: "array",
+                  type: ["array", "null"],
                   items: { type: "string" },
                 },
               },
+              required: [
+                "objetivo_calorias",
+                "objetivo_descripcion",
+                "objetivo_tipo",
+                "objetivo_justificacion",
+                "resultados_analiticos",
+                "suplementos",
+                "alergias_intolerancias",
+                "cirugias",
+                "medicacion",
+                "patologias",
+                "actividad_fisica_duracion",
+                "actividad_fisica_tipo",
+                "actividad_fisica_perfil",
+                "actividad_diaria",
+                "horario_dia_normal",
+                "horas_sueno",
+                "cantidad_agua",
+                "gustos_preferencias",
+                "alimentos_evitar",
+                "alimentos_priorizar",
+              ],
               additionalProperties: false,
             },
           },
@@ -104,7 +149,9 @@ export async function extractPatientData(transcription: string): Promise<{
   });
 
   const content = completion.choices[0].message.content;
-  if (!content) throw new Error("No content generated from OpenAI");
+  if (!content) {
+    throw new Error("No content generated from OpenAI");
+  }
 
   return JSON.parse(content);
 }

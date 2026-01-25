@@ -2,7 +2,7 @@ import { TranscriptionResult } from "@/models/audio/transcription.model";
 import openai from "../../lib/ai/openai";
 
 export async function transcribeAudio(
-  audioBlob: Blob
+  audioBlob: Blob,
 ): Promise<TranscriptionResult> {
   try {
     const arrayBuffer = await audioBlob.arrayBuffer();

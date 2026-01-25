@@ -10,6 +10,25 @@ import { Switch } from "@/components/ui/switch";
 import { Patient } from "@/models/dashboard/patients";
 import { supabase } from "../../lib/supabase/client";
 import { ComboBox } from "@/components/layout/app-comboBox";
+import {
+  PatientData,
+  PatientDataParsed,
+} from "@/models/extraction/extraction.models";
+import {
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { COLUMNS_PATIENTS } from "@/constants/dashboard";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function DietsPage() {
   const [transcription, setTranscription] = useState("");
@@ -22,9 +41,44 @@ export default function DietsPage() {
     string | undefined
   >();
 
+  const [patientInfo, setPatientInfo] = useState<Patient[]>([]);
+
+  const patientInfoTable = useReactTable({
+    data: patientInfo,
+    columns: COLUMNS_PATIENTS,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
+
   useEffect(() => {
     handleSelectPatient();
   }, []);
+
+  useEffect(() => {
+    if (selectedPatientId) {
+      const getInfoPatient = async (): Promise<Patient[]> => {
+        const { data, error } = await supabase
+          .from("patients")
+          .select("*")
+          .eq("id", selectedPatientId);
+        if (error) {
+          console.log(error);
+          return [];
+        }
+        return data;
+      };
+      getInfoPatient()
+        .then((data) => {
+          setPatientInfo(data);
+        })
+        .catch((err) => {
+          console.error(err);
+        })
+        .finally(() => {
+          console.log("finally");
+        });
+    }
+  }, [selectedPatientId]);
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
     setIsTranscribing(true);
@@ -142,8 +196,8 @@ export default function DietsPage() {
                 <span className="text-md font-light">
                   <b>2.</b> Luego, debes seleccionar el usuario
                 </span>
-                <div className="flex flex-row m-4 items-center">
-                  <p className="mr-4">Puedes seleccionar y buscar el usuario</p>
+                <div className="flex flex-col m-4">
+                  <p className="mb-2">Puedes seleccionar y buscar el usuario</p>
                   <ComboBox users={patients} onSelect={setSelectedPatientId} />
                 </div>
               </section>
@@ -152,6 +206,60 @@ export default function DietsPage() {
                   <b>3.</b> Te aparecerá información relevante del usuarios así
                   como sus anteriores dietas
                 </span>
+                <div>
+                  <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)]">
+                    <Table>
+                      <TableHeader>
+                        {patientInfoTable
+                          .getHeaderGroups()
+                          .map((headerGroup) => (
+                            <TableRow key={headerGroup.id}>
+                              {headerGroup.headers.map((header) => {
+                                return (
+                                  <TableHead key={header.id}>
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext(),
+                                        )}
+                                  </TableHead>
+                                );
+                              })}
+                            </TableRow>
+                          ))}
+                      </TableHeader>
+                      <TableBody>
+                        {patientInfoTable.getRowModel().rows?.length ? (
+                          patientInfoTable.getRowModel().rows.map((row) => (
+                            <TableRow
+                              key={row.id}
+                              data-state={row.getIsSelected() && "selected"}
+                            >
+                              {row.getVisibleCells().map((cell) => (
+                                <TableCell key={cell.id}>
+                                  {flexRender(
+                                    cell.column.columnDef.cell,
+                                    cell.getContext(),
+                                  )}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell
+                              colSpan={COLUMNS_PATIENTS.length}
+                              className="h-24 text-center"
+                            >
+                              Sin resultados
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </section>
             </div>
           )}
