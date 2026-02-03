@@ -229,7 +229,7 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)]">
+        <div className="mt-8 overflow-hidden max-h-[calc(100vh-20rem)]">
           <Table>
             <TableHeader>
               {tableUsers.getHeaderGroups().map((headerGroup) => (

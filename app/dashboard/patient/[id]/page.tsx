@@ -69,6 +69,15 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
   if (error || !patient) {
     return (
+      
+      // TODO - Añadir gráficas de evolución del paciente
+      // TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
+      // TODO - Botón de generar dieta. Navegará a la página de diets
+      // TODO - Sección para descargar todas las dietas generadas
+      // 1. Puede ser en la tabla de dietas
+      // 2. Puede ser en un modal
+      // 3. Puede ser en un botón de descargar todas las dietas
+
       <div className="min-h-screen p-4">
         <div className="max-w-4xl mx-auto">
           <Button
