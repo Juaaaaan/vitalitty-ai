@@ -7,10 +7,37 @@ import { Patient } from "@/models/dashboard/patients";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeftIcon } from "lucide-react";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
 }
+
+const chartData = [
+  { month: "January", desktop: 186, mobile: 80 },
+  { month: "February", desktop: 305, mobile: 200 },
+  { month: "March", desktop: 237, mobile: 120 },
+  { month: "April", desktop: 73, mobile: 190 },
+  { month: "May", desktop: 209, mobile: 130 },
+  { month: "June", desktop: 214, mobile: 140 },
+];
+
+const chartConfig = {
+  desktop: {
+    label: "Desktop",
+    color: "var(--chart-1)",
+  },
+  mobile: {
+    label: "Mobile",
+    color: "var(--chart-2)",
+  },
+} satisfies ChartConfig;
 
 export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   const router = useRouter();
@@ -79,6 +106,7 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Volver al Dashboard
           </Button>
+
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
             <p className="text-red-600">
@@ -108,7 +136,29 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
         <Separator className="mb-6" />
 
-        {/* Información del paciente */}
+        {/* TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
+        // TODO - Botón de generar dieta. Navegará a la página de diets
+        // TODO - Sección para descargar todas las dietas generadas
+        // 1. Puede ser en la tabla de dietas*/}
+
+        <section className="my-6">
+          <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
+            <BarChart accessibilityLayer data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
+              <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        </section>
+
         <div className="bg-white shadow-md rounded-lg p-6 space-y-6">
           <div>
             <h2 className="text-xl font-semibold mb-4">Información Personal</h2>
