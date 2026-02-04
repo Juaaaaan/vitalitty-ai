@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { SquareTerminal } from "lucide-react";
-
 import { NavMain } from "@/components/layout/nav/nav-main";
 import { NavUser } from "@/components/layout/nav/nav-user";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { supabase } from "../../../lib/supabase/client";
@@ -51,9 +52,13 @@ const goToPage = async (page: string, router: AppRouterInstance) => {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  console.log("props", props);
   const router = useRouter();
   return (
     <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader className="flex flex-row items-center justify-between p-2">
+        <ThemeToggle />
+      </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
       </SidebarContent>

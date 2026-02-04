@@ -166,17 +166,22 @@ export default function DietsPage() {
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
       <div className="mb-2">
-        <h2 className="text-2xl font-light">Dietas, pacientes y más... </h2>
+        <h2 className="text-2xl font-light text-gray-900 dark:text-white">
+          Dietas, pacientes y más...{" "}
+        </h2>
       </div>
 
-      <Separator orientation="horizontal" className="h-full mb-8" />
+      <Separator
+        orientation="horizontal"
+        className="h-full mb-8 dark:bg-gray-700"
+      />
 
       <div className="flex flex-row space-x-8">
         <div className="flex flex-col">
           <section>
-            <span className="text-md font-light">
+            <span className="text-md font-light text-gray-700 dark:text-gray-300">
               <b>1.</b> Lo primero que debes hacer es seleccionar si es un
               paciente nuevo o un paciente existente
             </span>
@@ -193,7 +198,7 @@ export default function DietsPage() {
           {isPatientNew && (
             <div>
               <section>
-                <span className="text-md font-light">
+                <span className="text-md font-light text-gray-700 dark:text-gray-300">
                   <b>2.</b> Luego, debes seleccionar el usuario
                 </span>
                 <div className="flex flex-col m-4">
@@ -202,12 +207,12 @@ export default function DietsPage() {
                 </div>
               </section>
               <section>
-                <span className="text-md font-light">
+                <span className="text-md font-light text-gray-700 dark:text-gray-300">
                   <b>3.</b> Te aparecerá información relevante del usuarios así
                   como sus anteriores dietas
                 </span>
                 <div>
-                  <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)]">
+                  <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)] bg-white dark:bg-gray-800">
                     <Table>
                       <TableHeader>
                         {patientInfoTable
@@ -271,10 +276,10 @@ export default function DietsPage() {
         <div className="flex flex-col">
           <div className="w-full space-y-8">
             <div>
-              <h3 className="text-2xl font-light">
+              <h3 className="text-2xl font-light text-gray-900 dark:text-white">
                 Grabación y transcripción del paciente
               </h3>
-              <span className="text-md font-light">
+              <span className="text-md font-light text-gray-600 dark:text-gray-300">
                 Automáticamente se añadirá la información del paciente y se
                 gestionará la creación de la dieta
               </span>

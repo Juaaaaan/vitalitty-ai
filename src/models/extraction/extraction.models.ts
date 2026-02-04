@@ -19,6 +19,10 @@ export interface PatientDataParsed {
 }
 
 export interface ConsultationData {
+  id: string;
+  patient_id: string;
+  created_at: string;
+  created_by: string;
   objetivo_calorias?: number;
   objetivo_descripcion?: string;
   objetivo_tipo?: string[]; // Array

@@ -1,3 +1,5 @@
+import { ConsultationData } from "../extraction/extraction.models";
+
 export interface Patient {
   id: string;
   created_at: string;
@@ -12,4 +14,5 @@ export interface Patient {
   created_by: string;
   value?: string;
   label?: string;
+  consultations?: ConsultationData[];
 }
