@@ -15,6 +15,20 @@ const eslintConfig = defineConfig([
     // Test report output
     "html/**",
   ]),
+  // Relax rules for test files
+  {
+    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // Relax rules for shadcn/ui generated components
+  {
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-hooks/purity": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
