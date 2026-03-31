@@ -41,6 +41,7 @@ import {
 import { MoreHorizontalIcon } from "lucide-react";
 
 export default function DashboardPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
 

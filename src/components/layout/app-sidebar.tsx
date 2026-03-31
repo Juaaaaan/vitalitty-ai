@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { SquareTerminal } from "lucide-react";
+import { CalendarDays, SquareTerminal } from "lucide-react";
 import { NavMain } from "@/components/layout/nav/nav-main";
 import { NavUser } from "@/components/layout/nav/nav-user";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -40,6 +40,18 @@ const data = {
         },
       ],
     },
+    {
+      title: "Calendario",
+      url: "/calendar",
+      icon: CalendarDays,
+      isActive: false,
+      items: [
+        {
+          title: "Eventos",
+          url: "/calendar",
+        },
+      ],
+    },
   ],
 };
 
@@ -52,7 +64,6 @@ const goToPage = async (page: string, router: AppRouterInstance) => {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  console.log("props", props);
   const router = useRouter();
   return (
     <Sidebar collapsible="icon" {...props}>
