@@ -152,7 +152,30 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
         <Separator className="mb-6 dark:bg-gray-700" />
 
-        <section>
+        {/* TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
+        // TODO - Botón de generar dieta. Navegará a la página de diets
+        // TODO - Sección para descargar todas las dietas generadas
+        // 1. Puede ser en la tabla de dietas*/}
+
+        <section className="my-6">
+          <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
+            <BarChart accessibilityLayer data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
+              <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        </section>
+
+        <div className="bg-white shadow-md rounded-lg p-6 space-y-6">
           <div>
             <h3>
               <b>{patient.name_surnames}</b> ha venido a consulta{" "}
