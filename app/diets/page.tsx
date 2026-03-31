@@ -6,14 +6,9 @@ import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import transcribeAction from "../actions/transcribe.action";
 import { processConsultation } from "../actions/save-consultation.action";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { Patient } from "@/models/dashboard/patients";
 import { supabase } from "../../lib/supabase/client";
-import { ComboBox } from "@/components/layout/app-comboBox";
-import {
-  PatientData,
-  PatientDataParsed,
-} from "@/models/extraction/extraction.models";
 import {
   flexRender,
   getCoreRowModel,
@@ -29,63 +24,92 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function DietsPage() {
   const [transcription, setTranscription] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // Processing extraction
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>();
-  const [isPatientNew, setIsPatientNew] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState<
-    string | undefined
-  >();
 
-  const [patientInfo, setPatientInfo] = useState<Patient[]>([]);
+  // New state for the intelligent flow
+  const [pendingTranscription, setPendingTranscription] = useState<
+    string | null
+  >(null);
+  const [matchedPatients, setMatchedPatients] = useState<Patient[]>([]);
+  const [selectedMatchedPatient, setSelectedMatchedPatient] =
+    useState<Patient | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const patientInfoTable = useReactTable({
-    data: patientInfo,
+    data: selectedMatchedPatient ? [selectedMatchedPatient] : [],
     columns: COLUMNS_PATIENTS,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
 
   useEffect(() => {
-    handleSelectPatient();
+    loadPatients();
   }, []);
 
-  useEffect(() => {
-    if (selectedPatientId) {
-      const getInfoPatient = async (): Promise<Patient[]> => {
-        const { data, error } = await supabase
-          .from("patients")
-          .select("*")
-          .eq("id", selectedPatientId);
-        if (error) {
-          console.log(error);
-          return [];
-        }
-        return data;
-      };
-      getInfoPatient()
-        .then((data) => {
-          setPatientInfo(data);
-        })
-        .catch((err) => {
-          console.error(err);
-        })
-        .finally(() => {
-          console.log("finally");
-        });
+  const loadPatients = async () => {
+    const { data, error } = await supabase.from("patients").select("*");
+    if (error) {
+      console.error("Error loading patients:", error);
+      return;
     }
-  }, [selectedPatientId]);
+    const formattedPatients = data?.map((patient: Patient) => ({
+      ...patient,
+      gender: patient.gender === "M" ? "Masculino" : "Femenino",
+    })) as Patient[];
+    setPatients(formattedPatients || []);
+  };
+
+  // Function to find matching patients based on transcription
+  const findMatchingPatients = (transcriptionText: string): Patient[] => {
+    const lowerTranscription = transcriptionText.toLowerCase();
+
+    return patients.filter((patient) => {
+      // Check if name appears in transcription
+      const nameParts = patient.name_surnames?.toLowerCase().split(" ") || [];
+      const nameMatch = nameParts.some((part) =>
+        lowerTranscription.includes(part),
+      );
+
+      // Check if email appears in transcription
+      const emailMatch = patient.mail
+        ? lowerTranscription.includes(patient.mail.toLowerCase())
+        : false;
+
+      // Check if phone appears in transcription
+      const phoneMatch = patient.phone
+        ? lowerTranscription.includes(patient.phone)
+        : false;
+
+      return nameMatch || emailMatch || phoneMatch;
+    });
+  };
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     setError(undefined);
+    setPendingTranscription(null);
+    setMatchedPatients([]);
+    setSelectedMatchedPatient(null);
+    setShowConfirmation(false);
 
     try {
-      // 1. Transcribe
+      // 1. Transcribe audio
       const result = await transcribeAction(audioBlob);
 
       if (result.error) {
@@ -95,81 +119,96 @@ export default function DietsPage() {
       }
 
       setTranscription(result.text);
-      setIsTranscribing(false); // Stop transcribing spinner, start processing spinner?
+      setIsTranscribing(false);
 
-      // 2. Process & Save (Extract Data)
-      setIsProcessing(true);
+      // 2. PAUSE HERE - Store transcription and look for matches
+      console.log("📝 Transcripción completada:", result.text);
+      setPendingTranscription(result.text);
 
-      // Determine if we have a selected patient (only if "Exists" switch is ON)
-      const patientIdToLink = isPatientNew ? selectedPatientId : undefined;
+      // 3. Try to find matching patients
+      const matches = findMatchingPatients(result.text);
+      console.log("🔍 Pacientes encontrados:", matches);
 
-      const saveResult = await processConsultation(
-        result.text,
-        patientIdToLink,
-      );
-
-      if (!saveResult.success) {
-        setError(saveResult.error || "Failed to process consultation");
+      if (matches.length > 0) {
+        setMatchedPatients(matches);
+        // Auto-select first match if only one found
+        if (matches.length === 1) {
+          setSelectedMatchedPatient(matches[0]);
+        }
+        setShowConfirmation(true);
       } else {
-        console.log(
-          "Consultation processed successfully!",
-          saveResult.patientId,
-        );
-        // Maybe we can append a success message to the transcription or show a toast
-        // For now, let's just make sure we don't error out.
+        // No matches found - show option to proceed as new patient
+        console.log("⚠️ No se encontraron pacientes coincidentes");
+        setShowConfirmation(true);
       }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to transcribe audio",
       );
       setIsTranscribing(false);
+    }
+  };
+
+  const handleConfirmAndProcess = async () => {
+    console.log("HOLI");
+    if (!pendingTranscription) {
+      return;
+    }
+
+    console.log("PEPEPEPEPEEPEPEPEPEE");
+
+    setIsProcessing(true);
+    setShowConfirmation(false);
+
+    try {
+      const saveResult = await processConsultation(
+        pendingTranscription,
+        selectedMatchedPatient?.id, // Pass patient ID if matched
+      );
+
+      if (!saveResult.success) {
+        setError(saveResult.error || "Failed to process consultation");
+      } else {
+        console.log(
+          "✅ Consulta procesada exitosamente!",
+          saveResult.patientId,
+        );
+        // Reset state after successful processing
+        setPendingTranscription(null);
+        setMatchedPatients([]);
+        setSelectedMatchedPatient(null);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to process consultation",
+      );
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleCancelProcess = () => {
+    setPendingTranscription(null);
+    setMatchedPatients([]);
+    setSelectedMatchedPatient(null);
+    setShowConfirmation(false);
+    setTranscription("");
+  };
+
   const onRetryRecording = () => {
     setTranscription("");
     setError(undefined);
-  };
-
-  const checkIsNewPatient = (checked: boolean) => {
-    setIsPatientNew(checked);
-    // Reset selection if toggled
-    if (!checked) setSelectedPatientId(undefined);
-    return checked;
-  };
-
-  const handleSelectPatient = () => {
-    const getPatients = async () => {
-      const { data, error } = await supabase.from("patients").select("*");
-      data?.map((patient: Patient) => {
-        patient.gender = patient.gender === "M" ? "Masculino" : "Femenino";
-      });
-      return { data, error };
-    };
-    getPatients()
-      .then(({ data, error }) => {
-        if (error) {
-          console.log(error);
-          return;
-        }
-        setPatients(
-          data?.map((patient: Patient) => ({
-            ...patient,
-            value: patient.id,
-            label: patient.name_surnames,
-          })) as Patient[],
-        );
-      })
-      .finally(() => console.log("finally"));
+    setPendingTranscription(null);
+    setMatchedPatients([]);
+    setSelectedMatchedPatient(null);
+    setShowConfirmation(false);
   };
 
   return (
     <div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
       <div className="mb-2">
         <h2 className="text-2xl font-light text-gray-900 dark:text-white">
-          Dietas, pacientes y más...{" "}
+          Dietas - Flujo Inteligente
         </h2>
       </div>
 
@@ -178,129 +217,190 @@ export default function DietsPage() {
         className="h-full mb-8 dark:bg-gray-700"
       />
 
-      <div className="flex flex-row space-x-8">
-        <div className="flex flex-col">
-          <section>
-            <span className="text-md font-light text-gray-700 dark:text-gray-300">
-              <b>1.</b> Lo primero que debes hacer es seleccionar si es un
-              paciente nuevo o un paciente existente
-            </span>
-            <div className="flex flex-row m-4 items-center">
-              <span className="mr-4">¿Es nuevo?</span>
-              <Switch
-                checked={isPatientNew}
-                onCheckedChange={(checked) => checkIsNewPatient(checked)}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column - Recording & Transcription */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Grabación de Audio</CardTitle>
+              <CardDescription>
+                Graba la consulta del paciente. El sistema buscará
+                automáticamente coincidencias con pacientes existentes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <AudioRecorder
+                onRecordingComplete={handleRecordingComplete}
+                onRetryRecording={onRetryRecording}
               />
-              <span className="ml-4">¿Existe?</span>
-            </div>
-          </section>
 
-          {isPatientNew && (
-            <div>
-              <section>
-                <span className="text-md font-light text-gray-700 dark:text-gray-300">
-                  <b>2.</b> Luego, debes seleccionar el usuario
-                </span>
-                <div className="flex flex-col m-4">
-                  <p className="mb-2">Puedes seleccionar y buscar el usuario</p>
-                  <ComboBox users={patients} onSelect={setSelectedPatientId} />
+              <TranscriptionDisplay
+                text={transcription}
+                isLoading={isTranscribing || isProcessing}
+                error={error}
+              />
+
+              {isProcessing && (
+                <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 animate-pulse">
+                  <div className="h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                  Procesando consulta y generando dieta...
                 </div>
-              </section>
-              <section>
-                <span className="text-md font-light text-gray-700 dark:text-gray-300">
-                  <b>3.</b> Te aparecerá información relevante del usuarios así
-                  como sus anteriores dietas
-                </span>
-                <div>
-                  <div className="mt-8 shadow-md rounded-4xl p-8 overflow-hidden max-h-[calc(100vh-20rem)] bg-white dark:bg-gray-800">
-                    <Table>
-                      <TableHeader>
-                        {patientInfoTable
-                          .getHeaderGroups()
-                          .map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                              {headerGroup.headers.map((header) => {
-                                return (
-                                  <TableHead key={header.id}>
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext(),
-                                        )}
-                                  </TableHead>
-                                );
-                              })}
-                            </TableRow>
-                          ))}
-                      </TableHeader>
-                      <TableBody>
-                        {patientInfoTable.getRowModel().rows?.length ? (
-                          patientInfoTable.getRowModel().rows.map((row) => (
-                            <TableRow
-                              key={row.id}
-                              data-state={row.getIsSelected() && "selected"}
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                  {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext(),
-                                  )}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={COLUMNS_PATIENTS.length}
-                              className="h-24 text-center"
-                            >
-                              Sin resultados
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Confirmation & Patient Info */}
+        <div className="space-y-6">
+          {showConfirmation && pendingTranscription && (
+            <Card className="border-2 border-blue-500 dark:border-blue-400">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {matchedPatients.length > 0 ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      Paciente Encontrado
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                      Paciente Nuevo
+                    </>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {matchedPatients.length > 0
+                    ? "Se encontraron coincidencias con pacientes existentes"
+                    : "No se encontraron coincidencias. Se creará un nuevo paciente."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {matchedPatients.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">
+                      Pacientes coincidentes:
+                    </p>
+                    {matchedPatients.map((patient) => (
+                      <div
+                        key={patient.id}
+                        onClick={() => setSelectedMatchedPatient(patient)}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedMatchedPatient?.id === patient.id
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                            : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold">
+                              {patient.name_surnames}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {patient.mail}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {patient.phone}
+                            </p>
+                          </div>
+                          {selectedMatchedPatient?.id === patient.id && (
+                            <Badge variant="default">Seleccionado</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              </section>
-            </div>
+                )}
+
+                {matchedPatients.length === 0 && (
+                  <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                      Se creará un nuevo paciente con la información extraída de
+                      la transcripción.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex gap-3">
+                <Button
+                  onClick={handleConfirmAndProcess}
+                  className="flex-1"
+                  disabled={
+                    matchedPatients.length > 1 && !selectedMatchedPatient
+                  }
+                >
+                  {matchedPatients.length > 0
+                    ? "Confirmar y Generar Dieta"
+                    : "Crear Paciente y Generar Dieta"}
+                </Button>
+                <Button
+                  onClick={handleCancelProcess}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </CardFooter>
+            </Card>
           )}
-        </div>
 
-        <div>
-          <Separator orientation="vertical" className="h-full mb-8" />
-        </div>
-        <div className="flex flex-col">
-          <div className="w-full space-y-8">
-            <div>
-              <h3 className="text-2xl font-light text-gray-900 dark:text-white">
-                Grabación y transcripción del paciente
-              </h3>
-              <span className="text-md font-light text-gray-600 dark:text-gray-300">
-                Automáticamente se añadirá la información del paciente y se
-                gestionará la creación de la dieta
-              </span>
-            </div>
-
-            <AudioRecorder
-              onRecordingComplete={handleRecordingComplete}
-              onRetryRecording={onRetryRecording}
-            />
-
-            <TranscriptionDisplay
-              text={transcription}
-              isLoading={isTranscribing || isProcessing}
-              error={error}
-            />
-            {isProcessing && (
-              <p className="text-sm text-gray-500 animate-pulse">
-                Analizando información y guardando datos...
-              </p>
-            )}
-          </div>
+          {/* Patient Info Table */}
+          {selectedMatchedPatient && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Información del Paciente</CardTitle>
+                <CardDescription>
+                  Datos existentes del paciente seleccionado
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      {patientInfoTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                  )}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {patientInfoTable.getRowModel().rows?.length ? (
+                        patientInfoTable.getRowModel().rows.map((row) => (
+                          <TableRow key={row.id}>
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id}>
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext(),
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={COLUMNS_PATIENTS.length}
+                            className="h-24 text-center"
+                          >
+                            Sin información
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

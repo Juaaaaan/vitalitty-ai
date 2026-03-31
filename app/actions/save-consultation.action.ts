@@ -9,6 +9,7 @@ export async function processConsultation(
   existingPatientId?: string,
 ) {
   try {
+    console.log("HOLI");
     const supabase = await createClient();
 
     // 1. Extract data using OpenAI
@@ -83,16 +84,18 @@ export async function processConsultation(
     const { error: consultationError } = await supabase
       .from("patient_consultations")
       .insert({
-        patient_id: patientId,
-        created_by: user.id,
+        // patient_id: patientId,
+        // created_by: user.id,
         audio_transcription: transcription,
         ...consultation,
       });
 
-    if (consultationError)
+    if (consultationError) {
+      console.log(consultationError);
       throw new Error(
         `Error creating consultation: ${consultationError.message}`,
       );
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/diets");

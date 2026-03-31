@@ -15,27 +15,27 @@ import {
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { MAGIC_NUMBERS } from "@/constants/magic-numbers";
+import { MONTHS } from "@/constants/months";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-];
+const patientToGraphBar = (patient: Patient) => {
+  return patient?.consultations?.map((consultation) => ({
+    month: MONTHS[new Date(consultation.created_at).getMonth() + 1],
+    weight: 100,
+    height: 100,
+  }));
+};
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  weight: {
+    label: "Peso",
     color: "var(--chart-1)",
   },
-  mobile: {
-    label: "Mobile",
+  height: {
+    label: "Altura",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
@@ -152,14 +152,19 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
         <Separator className="mb-6 dark:bg-gray-700" />
 
-        {/* TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
-        // TODO - Botón de generar dieta. Navegará a la página de diets
-        // TODO - Sección para descargar todas las dietas generadas
-        // 1. Puede ser en la tabla de dietas*/}
+        <section>
+          <div>
+            <h3>
+              <b>{patient.name_surnames}</b> ha venido a consulta{" "}
+              {patient?.consultations?.length}{" "}
+              {patient?.consultations?.length === 1 ? "vez" : "veces"}
+            </h3>
+          </div>
+        </section>
 
         <section className="my-6">
           <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
-            <BarChart accessibilityLayer data={chartData}>
+            <BarChart accessibilityLayer data={patientToGraphBar(patient)}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="month"
@@ -195,90 +200,6 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
               )}
           </div>
         </section>
-
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 space-y-6 mt-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-              Información Personal
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Nombre y Apellidos
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.name_surnames}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Email
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.mail || "No especificado"}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Teléfono
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.phone || "No especificado"}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Edad
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.age || "No especificado"} años
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Género
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.gender || "No especificado"}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Peso
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.weight ? `${patient.weight} kg` : "No especificado"}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Altura
-                </label>
-                <p className="text-lg text-gray-900 dark:text-white">
-                  {patient.height ? `${patient.height} cm` : "No especificado"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <Separator className="dark:bg-gray-700" />
-
-          <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-              Historial de Consultas
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              Próximamente: Aquí se mostrarán las consultas anteriores del
-              paciente
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
