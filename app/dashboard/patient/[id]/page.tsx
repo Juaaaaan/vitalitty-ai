@@ -14,27 +14,28 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { MAGIC_NUMBERS } from "@/constants/magic-numbers";
+import { MONTHS } from "@/constants/months";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-];
+const patientToGraphBar = (patient: Patient) => {
+  return patient?.consultations?.map((consultation) => ({
+    month: MONTHS[new Date(consultation.created_at).getMonth() + 1],
+    weight: 100,
+    height: 100,
+  }));
+};
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  weight: {
+    label: "Peso",
     color: "var(--chart-1)",
   },
-  mobile: {
-    label: "Mobile",
+  height: {
+    label: "Altura",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
@@ -59,20 +60,29 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
     const fetchPatient = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from("patients")
-          .select("*")
-          .eq("id", patientId)
-          .single();
+        const [patientData, consultationsData] = await Promise.all([
+          supabase.from("patients").select("*").eq("id", patientId).single(),
+          supabase
+            .from("patient_consultations")
+            .select("*")
+            .eq("patient_id", patientId),
+        ]);
 
-        if (error) throw error;
-
-        // Transform gender for display
-        if (data) {
-          data.gender = data.gender === "M" ? "Masculino" : "Femenino";
+        if (patientData.error || consultationsData.error) {
+          throw patientData.error || consultationsData.error;
         }
 
-        setPatient(data);
+        // Transform gender for display
+        if (patientData && patientData.data) {
+          patientData.data.gender =
+            patientData.data.gender === "M" ? "Masculino" : "Femenino";
+        }
+
+        const combinedData = {
+          ...patientData.data, // Todos los campos del paciente
+          consultations: consultationsData.data || [], // Array de consultas
+        };
+        setPatient(combinedData);
       } catch (err) {
         console.error("Error fetching patient:", err);
         setError(
@@ -88,15 +98,17 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <p className="text-lg">Cargando información del paciente...</p>
+      <div className="min-h-screen p-8 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <p className="text-lg text-gray-900 dark:text-white">
+          Cargando información del paciente...
+        </p>
       </div>
     );
   }
 
   if (error || !patient) {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto">
           <Button
             variant="ghost"
@@ -107,9 +119,11 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             Volver al Dashboard
           </Button>
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
-            <p className="text-red-600">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-red-800 dark:text-red-400 mb-2">
+              Error
+            </h2>
+            <p className="text-red-600 dark:text-red-300">
               {error || "No se pudo encontrar el paciente"}
             </p>
           </div>
@@ -119,7 +133,7 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto">
         {/* Header con botón de volver */}
         <div className="mb-6">
@@ -131,10 +145,12 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Volver al Dashboard
           </Button>
-          <h1 className="text-3xl font-semibold">Detalle del Paciente</h1>
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
+            Detalle del Paciente
+          </h1>
         </div>
 
-        <Separator className="mb-6" />
+        <Separator className="mb-6 dark:bg-gray-700" />
 
         {/* TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
         // TODO - Botón de generar dieta. Navegará a la página de diets
@@ -161,77 +177,52 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
         <div className="bg-white shadow-md rounded-lg p-6 space-y-6">
           <div>
-            <h2 className="text-xl font-semibold mb-4">Información Personal</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Nombre y Apellidos
-                </label>
-                <p className="text-lg">{patient.name_surnames}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Email
-                </label>
-                <p className="text-lg">{patient.mail || "No especificado"}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Teléfono
-                </label>
-                <p className="text-lg">{patient.phone || "No especificado"}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Edad
-                </label>
-                <p className="text-lg">
-                  {patient.age || "No especificado"} años
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Género
-                </label>
-                <p className="text-lg">{patient.gender || "No especificado"}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Peso
-                </label>
-                <p className="text-lg">
-                  {patient.weight ? `${patient.weight} kg` : "No especificado"}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  Altura
-                </label>
-                <p className="text-lg">
-                  {patient.height ? `${patient.height} cm` : "No especificado"}
-                </p>
-              </div>
-            </div>
+            <h3>
+              <b>{patient.name_surnames}</b> ha venido a consulta{" "}
+              {patient?.consultations?.length}{" "}
+              {patient?.consultations?.length === 1 ? "vez" : "veces"}
+            </h3>
           </div>
+        </section>
 
-          <Separator />
+        <section className="my-6">
+          <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
+            <BarChart accessibilityLayer data={patientToGraphBar(patient)}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
+              <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        </section>
 
+        <section className="mt-6">
           <div>
-            <h2 className="text-xl font-semibold mb-4">
-              Historial de Consultas
-            </h2>
-            <p className="text-gray-500">
-              Próximamente: Aquí se mostrarán las consultas anteriores del
-              paciente
-            </p>
+            {patient &&
+              patient.consultations &&
+              patient.consultations.length > MAGIC_NUMBERS.ZERO && (
+                <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 space-y-6 mt-6">
+                  {patient.consultations.map((consultation) => (
+                    <div key={consultation.id}>
+                      <p className="text-xs font-light text-gray-700 dark:text-gray-300">
+                        <b>Objetivo:</b> {consultation.objetivo_descripcion}
+                      </p>
+                      <p className="text-xs font-light text-gray-700 dark:text-gray-300">
+                        <b>Calorías:</b> {consultation.objetivo_calorias} kcal
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

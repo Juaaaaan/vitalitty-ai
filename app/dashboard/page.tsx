@@ -117,7 +117,7 @@ export default function DashboardPage() {
     setLoading(true);
     const getPatients = async () => {
       const { data, error } = await supabase.from("patients").select("*");
-      data?.map((patient) => {
+      data?.forEach((patient) => {
         patient.gender = patient.gender === "M" ? "Masculino" : "Femenino";
       });
       return { data, error };
@@ -136,25 +136,32 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-semibold">Bienvenid@</h1>
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
+            Bienvenid@
+          </h1>
         </div>
         <div className="mt-2 mb-8">
-          <h4 className="text-md font-light">
+          <h4 className="text-md font-light text-gray-600 dark:text-gray-300">
             Te damos la bienvenida al dashboard o al resumen global para que
             puedas ver tus datos.
           </h4>
-          <h4 className="text-md font-light">
+          <h4 className="text-md font-light text-gray-600 dark:text-gray-300">
             Aquí podrás encontrar todos los pacientes actuales, la información
             de los mismos y cada cuanto tiempo se actualizan los datos.
           </h4>
         </div>
 
         <div>
-          <h3 className="text-xl font-light mb-2">Buscador de pacientes</h3>
-          <Separator orientation="horizontal" className="mb-8" />
+          <h3 className="text-xl font-light mb-2 text-gray-900 dark:text-white">
+            Buscador de pacientes
+          </h3>
+          <Separator
+            orientation="horizontal"
+            className="mb-8 dark:bg-gray-700"
+          />
           <form onSubmit={handleSubmitSearch}>
             <div className="flex gap-5 items-center align-center mt-4 flex-wrap">
               <Field className="w-full md:w-1/5">
@@ -229,7 +236,7 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        <div className="mt-8 overflow-hidden max-h-[calc(100vh-20rem)]">
+        <div className="mt-8 overflow-hidden max-h-[calc(100vh-20rem)] bg-white dark:bg-gray-800 rounded-lg shadow">
           <Table>
             <TableHeader>
               {tableUsers.getHeaderGroups().map((headerGroup) => (
