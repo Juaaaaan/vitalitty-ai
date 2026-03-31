@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+# Lint and format staged files
+npm run lint:fix
+
+# Run tests (optional - uncomment if needed)
+# npm test
+
+echo "✓ Pre-commit checks passed"
