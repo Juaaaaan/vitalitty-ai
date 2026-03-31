@@ -10,7 +10,9 @@
     "lint:fix": "eslint --fix",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepare": "husky",
+    "lint-staged": "lint-staged"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
