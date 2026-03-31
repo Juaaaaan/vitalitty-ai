@@ -41,7 +41,7 @@ import {
 import { MoreHorizontalIcon } from "lucide-react";
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<object | null>(null);
   const router = useRouter();
 
   const [patients, setPatients] = useState<Patient[]>([]);

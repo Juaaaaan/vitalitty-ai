@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { SquareTerminal } from "lucide-react";
+import { CalendarDays, SquareTerminal } from "lucide-react";
 import { NavMain } from "@/components/layout/nav/nav-main";
 import { NavUser } from "@/components/layout/nav/nav-user";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -39,6 +39,11 @@ const data = {
           url: "/diets",
         },
       ],
+    },
+    {
+      title: "Calendario",
+      url: "/calendar",
+      icon: CalendarDays,
     },
   ],
 };
