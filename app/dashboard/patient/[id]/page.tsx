@@ -159,7 +159,7 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
 
         <section className="my-6">
           <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
-            <BarChart accessibilityLayer data={chartData}>
+            <BarChart accessibilityLayer data={patientToGraphBar(patient) || []}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="month"
@@ -183,7 +183,7 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
               {patient?.consultations?.length === 1 ? "vez" : "veces"}
             </h3>
           </div>
-        </section>
+        </div>
 
         <section className="my-6">
           <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
