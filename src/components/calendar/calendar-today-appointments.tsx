@@ -1,26 +1,12 @@
 "use client";
 
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_TYPE_LABELS } from "@/models/calendar/appointment.model";
 import type { Appointment } from "@/models/calendar/appointment.model";
-
-const SPANISH_MONTHS = [
-  "Ene",
-  "Feb",
-  "Mar",
-  "Abr",
-  "May",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dic",
-];
 
 function getInitials(name: string): string {
   return name
@@ -41,15 +27,13 @@ export function CalendarTodayAppointments({
   appointments,
   today,
 }: CalendarTodayAppointmentsProps) {
-  const day = today.getDate();
-  const monthName = SPANISH_MONTHS[today.getMonth()];
+  // appointments is expected to be pre-filtered for today's date by the parent component
+  const todayLabel = format(today, "d 'de' MMM", { locale: es });
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">
-          Hoy, {day} de {monthName}
-        </h3>
+        <h3 className="text-lg font-bold">Hoy, {todayLabel}</h3>
         <Badge className="text-xs font-bold uppercase bg-primary text-primary-foreground">
           {appointments.length} CITAS
         </Badge>
