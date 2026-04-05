@@ -140,7 +140,7 @@ export default function DashboardPage() {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
-            Bienvenido
+            Bienvenid@
           </h1>
         </div>
         <div className="mt-2 mb-8">
