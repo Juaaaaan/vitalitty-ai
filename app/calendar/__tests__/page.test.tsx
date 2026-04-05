@@ -1,59 +1,77 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import CalendarPage from "../page";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { CalendarPageClient } from "@/components/calendar/calendar-page";
+import type {
+  Appointment,
+  WeeklySummary,
+} from "@/models/calendar/appointment.model";
 
-const mockBack = vi.fn();
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    back: mockBack,
+vi.mock("@/services/calendar-service", () => ({
+  getAppointmentsForMonth: vi.fn().mockResolvedValue([]),
+  getWeeklySummary: vi.fn().mockResolvedValue({
+    completed: 18,
+    total: 24,
+    message: "Test message",
   }),
 }));
 
-describe("Calendar Page", () => {
-  beforeEach(() => {
-    mockBack.mockClear();
-  });
+const mockWeeklySummary: WeeklySummary = {
+  completed: 18,
+  total: 24,
+  message: "Tu carga de trabajo está un 12% por encima de la media semanal.",
+};
 
+const mockAppointments: Appointment[] = [];
+
+describe("Calendar Page (CalendarPageClient)", () => {
   it("renders without crashing", () => {
-    const { container } = render(<CalendarPage />);
+    const { container } = render(
+      <CalendarPageClient
+        appointments={mockAppointments}
+        weeklySummary={mockWeeklySummary}
+      />,
+    );
     expect(container).toBeDefined();
   });
 
-  it("renders the root div with correct classes", () => {
-    const { container } = render(<CalendarPage />);
-    const rootDiv = container.firstChild as HTMLElement;
-    expect(rootDiv.className).toContain("min-h-screen");
-    expect(rootDiv.className).toContain("bg-gray-50");
+  it("renders the Nueva Cita button", () => {
+    render(
+      <CalendarPageClient
+        appointments={mockAppointments}
+        weeklySummary={mockWeeklySummary}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Nueva cita" })).toBeDefined();
   });
 
-  it("renders the Calendario heading", () => {
-    render(<CalendarPage />);
-    expect(screen.getByText("Calendario")).toBeDefined();
+  it("renders the Hoy navigation button", () => {
+    render(
+      <CalendarPageClient
+        appointments={mockAppointments}
+        weeklySummary={mockWeeklySummary}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Hoy" })).toBeDefined();
   });
 
-  it("renders the back button", () => {
-    render(<CalendarPage />);
-    expect(screen.getByRole("button", { name: /Volver/i })).toBeDefined();
+  it("renders the weekly summary section", () => {
+    render(
+      <CalendarPageClient
+        appointments={mockAppointments}
+        weeklySummary={mockWeeklySummary}
+      />,
+    );
+    expect(screen.getByText("RESUMEN SEMANAL")).toBeDefined();
   });
 
-  it("calls router.back() when back button is clicked", () => {
-    render(<CalendarPage />);
-    const backButton = screen.getByRole("button", { name: /Volver/i });
-    fireEvent.click(backButton);
-    expect(mockBack).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders inner wrapper with max-width class", () => {
-    const { container } = render(<CalendarPage />);
-    const inner = container.querySelector(".max-w-4xl");
-    expect(inner).toBeDefined();
-  });
-
-  it("renders the heading as an h1 element", () => {
-    render(<CalendarPage />);
-    const heading = screen.getByRole("heading", { level: 1 });
-    expect(heading).toBeDefined();
-    expect(heading.textContent).toBe("Calendario");
+  it("renders the calendar grid with day headers", () => {
+    render(
+      <CalendarPageClient
+        appointments={mockAppointments}
+        weeklySummary={mockWeeklySummary}
+      />,
+    );
+    expect(screen.getByText("LUN")).toBeDefined();
+    expect(screen.getByText("DOM")).toBeDefined();
   });
 });
