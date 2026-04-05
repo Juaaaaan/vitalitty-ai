@@ -1,6 +1,5 @@
 "use client";
 
-import { Separator } from "@/components/ui/separator";
 import { CalendarTodayAppointments } from "./calendar-today-appointments";
 import { CalendarWeeklySummary } from "./calendar-weekly-summary";
 import type {

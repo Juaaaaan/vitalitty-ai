@@ -24,7 +24,7 @@ export default function CalendarLoading() {
           </div>
           <div className="grid grid-cols-7">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="min-h-[80px] border-b border-r p-1.5">
+              <div key={i} className="min-h-[90px] border-b border-r p-1.5">
                 <Skeleton className="h-6 w-6 rounded-full mb-1" />
               </div>
             ))}
