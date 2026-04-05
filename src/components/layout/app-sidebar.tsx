@@ -42,7 +42,7 @@ const data = {
     },
     {
       title: "Calendario",
-      url: "/calendar",
+      url: "/dashboard/calendar",
       icon: CalendarDays,
     },
   ],

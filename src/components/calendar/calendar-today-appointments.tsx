@@ -1,24 +1,25 @@
 "use client";
 
-import { format, isSameDay } from "date-fns";
+import { format } from "date-fns";
+import { Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_TYPE_LABELS } from "@/models/calendar/appointment.model";
 import type { Appointment } from "@/models/calendar/appointment.model";
 
 const SPANISH_MONTHS = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
 ];
 
 function getInitials(name: string): string {
@@ -40,29 +41,27 @@ export function CalendarTodayAppointments({
   appointments,
   today,
 }: CalendarTodayAppointmentsProps) {
-  const todayAppointments = appointments.filter((a) =>
-    isSameDay(new Date(a.start_time), today),
-  );
-
   const day = today.getDate();
   const monthName = SPANISH_MONTHS[today.getMonth()];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">
+        <h3 className="text-lg font-bold">
           Hoy, {day} de {monthName}
         </h3>
-        <Badge variant="secondary" className="text-xs font-bold uppercase">
-          {todayAppointments.length} CITAS
+        <Badge className="text-xs font-bold uppercase bg-primary text-primary-foreground">
+          {appointments.length} CITAS
         </Badge>
       </div>
 
-      {todayAppointments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No hay citas para hoy</p>
+      {appointments.length === 0 ? (
+        <div className="py-4 text-center">
+          <p className="text-sm text-muted-foreground">No hay citas para hoy</p>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {todayAppointments.map((appt) => {
+        <ul className="flex flex-col gap-3">
+          {appointments.map((appt) => {
             const name =
               appt.patient_id === null
                 ? "Bloqueo Personal"
@@ -71,24 +70,28 @@ export function CalendarTodayAppointments({
             const timeEnd = format(new Date(appt.end_time), "HH:mm");
 
             return (
-              <li key={appt.id} className="flex items-center gap-2">
-                <Avatar className="h-8 w-8 shrink-0">
+              <li key={appt.id} className="flex items-center gap-3">
+                <Avatar className="h-10 w-10 shrink-0">
                   {appt.patients?.avatar_url && (
                     <AvatarImage src={appt.patients.avatar_url} alt={name} />
                   )}
-                  <AvatarFallback className="text-xs">
+                  <AvatarFallback className="text-xs font-semibold">
                     {getInitials(name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-semibold truncate">{name}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3" />
                     {timeStart} - {timeEnd}
                   </p>
+                  <Badge
+                    variant="outline"
+                    className="text-xs mt-1 uppercase tracking-wide"
+                  >
+                    {APPOINTMENT_TYPE_LABELS[appt.type]}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {APPOINTMENT_TYPE_LABELS[appt.type]}
-                </Badge>
               </li>
             );
           })}
@@ -97,7 +100,7 @@ export function CalendarTodayAppointments({
 
       <a
         href="#"
-        className="text-xs text-primary hover:underline mt-1 self-start"
+        className="text-xs text-primary hover:underline mt-1 self-start font-medium"
       >
         Ver agenda completa →
       </a>

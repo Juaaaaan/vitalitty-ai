@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -26,41 +26,45 @@ export function CalendarHeader({
   const title = format(currentMonth, "MMMM yyyy", { locale: es });
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
-      {/* Navigation */}
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Mes anterior"
-          onClick={onPrev}
-        >
-          {"<"}
-        </Button>
-        <Button variant="outline" onClick={onToday}>
-          Hoy
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Mes siguiente"
-          onClick={onNext}
-        >
-          {">"}
-        </Button>
-      </div>
+    <div className="flex flex-wrap items-center gap-3 mb-6">
+      {/* Month title */}
+      <h2 className="text-2xl font-bold capitalize">{title}</h2>
 
-      {/* Month title — CSS capitalize handles the first-letter uppercasing */}
-      <h2 className="flex-1 text-lg font-semibold capitalize">{title}</h2>
+      {/* Navigation buttons */}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Mes anterior"
+        onClick={onPrev}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onToday}>
+        Hoy
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Mes siguiente"
+        onClick={onNext}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+
+      {/* Spacer */}
+      <div className="flex-1" />
 
       {/* Search */}
-      <Input
-        className="w-56"
-        placeholder="Buscar paciente o cita..."
-        onChange={(e) => onSearch(e.target.value)}
-      />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          className="pl-9 w-56"
+          placeholder="Buscar paciente o cita..."
+          onChange={(e) => onSearch(e.target.value)}
+        />
+      </div>
 
-      {/* New appointment */}
+      {/* New appointment CTA */}
       <Button aria-label="Nueva cita" onClick={onNewAppointment}>
         <CalendarDays className="mr-2 h-4 w-4" />
         Nueva Cita

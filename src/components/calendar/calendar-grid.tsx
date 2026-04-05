@@ -28,7 +28,6 @@ export function CalendarGrid({
 }: CalendarGridProps) {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
-  // Week starts on Monday (weekStartsOn: 1)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -36,11 +35,11 @@ export function CalendarGrid({
   return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b">
+      <div className="grid grid-cols-7 border-b bg-muted/30">
         {DAY_HEADERS.map((header) => (
           <div
             key={header}
-            className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            className="py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide"
           >
             {header}
           </div>
@@ -61,7 +60,9 @@ export function CalendarGrid({
               key={day.toISOString()}
               data-today={isToday ? "true" : undefined}
               className={cn(
-                "min-h-[80px] border-b border-r p-1.5 last:border-r-0",
+                "min-h-[90px] border-b border-r p-1.5",
+                "[&:nth-child(7n)]:border-r-0",
+                isToday && "bg-accent/30",
                 !isCurrentMonth && "opacity-40",
               )}
             >
@@ -69,7 +70,7 @@ export function CalendarGrid({
                 className={cn(
                   "mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
                   isToday
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground font-bold"
                     : "text-foreground",
                 )}
               >

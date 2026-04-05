@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CalendarTodayAppointments } from "./calendar-today-appointments";
 import { CalendarWeeklySummary } from "./calendar-weekly-summary";
@@ -8,6 +7,7 @@ import type {
   Appointment,
   WeeklySummary,
 } from "@/models/calendar/appointment.model";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface CalendarSidePanelProps {
   appointments: Appointment[];
@@ -21,16 +21,20 @@ export function CalendarSidePanel({
   weeklySummary,
 }: CalendarSidePanelProps) {
   return (
-    <Card className="h-fit">
-      <CardContent className="flex flex-col gap-4 px-4 py-4">
-        <CalendarTodayAppointments appointments={appointments} today={today} />
-        <Separator />
-        <CalendarWeeklySummary
-          completed={weeklySummary.completed}
-          total={weeklySummary.total}
-          message={weeklySummary.message}
-        />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardContent className="p-4">
+          <CalendarTodayAppointments
+            appointments={appointments}
+            today={today}
+          />
+        </CardContent>
+      </Card>
+      <CalendarWeeklySummary
+        completed={weeklySummary.completed}
+        total={weeklySummary.total}
+        message={weeklySummary.message}
+      />
+    </div>
   );
 }
