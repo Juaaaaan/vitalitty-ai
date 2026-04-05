@@ -1,8 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { isSameDay } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_TYPE_LABELS } from "@/models/calendar/appointment.model";
@@ -26,6 +24,7 @@ const SPANISH_MONTHS = [
 function getInitials(name: string): string {
   return name
     .split(" ")
+    .filter((w) => w.length > 0)
     .slice(0, 2)
     .map((w) => w[0])
     .join("")

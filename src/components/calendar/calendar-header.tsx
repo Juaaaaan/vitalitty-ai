@@ -24,7 +24,6 @@ export function CalendarHeader({
   onNewAppointment,
 }: CalendarHeaderProps) {
   const title = format(currentMonth, "MMMM yyyy", { locale: es });
-  const titleCapitalized = title.charAt(0).toUpperCase() + title.slice(1);
 
   return (
     <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -51,10 +50,8 @@ export function CalendarHeader({
         </Button>
       </div>
 
-      {/* Month title */}
-      <h2 className="flex-1 text-lg font-semibold capitalize">
-        {titleCapitalized}
-      </h2>
+      {/* Month title — CSS capitalize handles the first-letter uppercasing */}
+      <h2 className="flex-1 text-lg font-semibold capitalize">{title}</h2>
 
       {/* Search */}
       <Input

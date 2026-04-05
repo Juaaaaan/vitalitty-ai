@@ -8,7 +8,6 @@ import {
   eachDayOfInterval,
   isSameDay,
   isSameMonth,
-  getDay,
 } from "date-fns";
 import type { Appointment } from "@/models/calendar/appointment.model";
 import { CalendarEventChip } from "./calendar-event-chip";
