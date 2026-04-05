@@ -41,9 +41,15 @@ const data = {
       ],
     },
     {
-      title: "Calendario",
-      url: "/calendar",
+      title: "Agenda",
+      url: "#",
       icon: CalendarDays,
+      items: [
+        {
+          title: "Calendario",
+          url: "/dashboard/calendar",
+        },
+      ],
     },
   ],
 };
