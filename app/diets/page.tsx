@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { AudioRecorder } from "@/components/audio/audio-recorder";
 import { TranscriptionDisplay } from "@/components/audio/transcription-display";
-import transcribeAction from "../actions/transcribe.action";
-import { processConsultation } from "../actions/save-consultation.action";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Patient } from "@/models/dashboard/patients";
@@ -109,71 +107,90 @@ export default function DietsPage() {
     setShowConfirmation(false);
 
     try {
-      // 1. Transcribe audio
-      const result = await transcribeAction(audioBlob);
+      // Usamos fetch con FormData — sin Server Actions en esta página
+      const formData = new FormData();
+      formData.append(
+        "audio",
+        new File([audioBlob], "audio.webm", { type: "audio/webm" }),
+      );
+
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
 
       if (result.error) {
         setError(result.error);
-        setIsTranscribing(false);
+        return;
+      }
+
+      // Guard: transcripción vacía
+      if (!result.text || result.text.trim() === "") {
+        setError("La transcripción volvió vacía. Intenta grabar de nuevo.");
         return;
       }
 
       setTranscription(result.text);
-      setIsTranscribing(false);
 
-      // 2. PAUSE HERE - Store transcription and look for matches
       console.log("📝 Transcripción completada:", result.text);
       setPendingTranscription(result.text);
 
-      // 3. Try to find matching patients
       const matches = findMatchingPatients(result.text);
       console.log("🔍 Pacientes encontrados:", matches);
 
-      if (matches.length > 0) {
-        setMatchedPatients(matches);
-        // Auto-select first match if only one found
-        if (matches.length === 1) {
-          setSelectedMatchedPatient(matches[0]);
-        }
-        setShowConfirmation(true);
-      } else {
-        // No matches found - show option to proceed as new patient
-        console.log("⚠️ No se encontraron pacientes coincidentes");
-        setShowConfirmation(true);
+      setMatchedPatients(matches);
+      if (matches.length === 1) {
+        setSelectedMatchedPatient(matches[0]);
       }
+      setShowConfirmation(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to transcribe audio",
       );
+    } finally {
       setIsTranscribing(false);
     }
   };
 
   const handleConfirmAndProcess = async () => {
-    console.log("HOLI");
-    if (!pendingTranscription) {
-      return;
-    }
+    if (!pendingTranscription) return;
 
-    console.log("PEPEPEPEPEEPEPEPEPEE");
+    console.log("JEJEEJEJJEE");
 
-    setIsProcessing(true);
-    setShowConfirmation(false);
+    // setIsProcessing(true);
+    // setShowConfirmation(false);
+
+    // setTimeout(() => {
+    //   setIsProcessing(false);
+    // }, 3000);
 
     try {
-      const saveResult = await processConsultation(
-        pendingTranscription,
-        selectedMatchedPatient?.id, // Pass patient ID if matched
-      );
+      console.log("Processing consultation...");
+      // Usamos fetch en lugar de Server Action para evitar que React bloquee la UI
+      const response = await fetch("/api/process-consultation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcription: pendingTranscription,
+          existingPatientId: selectedMatchedPatient?.id ?? null,
+        }),
+      });
 
-      if (!saveResult.success) {
-        setError(saveResult.error || "Failed to process consultation");
-      } else {
-        console.log(
-          "✅ Consulta procesada exitosamente!",
-          saveResult.patientId,
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Server error: ${response.statusText}`,
         );
-        // Reset state after successful processing
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        setError(result.error || "Failed to process consultation");
+      } else {
+        console.log("✅ Consulta procesada exitosamente!", result.patientId);
         setPendingTranscription(null);
         setMatchedPatients([]);
         setSelectedMatchedPatient(null);
@@ -183,7 +200,8 @@ export default function DietsPage() {
         err instanceof Error ? err.message : "Failed to process consultation",
       );
     } finally {
-      setIsProcessing(false);
+      // setIsProcessing(false);
+      // setIsTranscribing(false);
     }
   };
 
@@ -236,7 +254,7 @@ export default function DietsPage() {
 
               <TranscriptionDisplay
                 text={transcription}
-                isLoading={isTranscribing || isProcessing}
+                isLoading={isTranscribing}
                 error={error}
               />
 
@@ -252,7 +270,7 @@ export default function DietsPage() {
 
         {/* Right Column - Confirmation & Patient Info */}
         <div className="space-y-6">
-          {showConfirmation && pendingTranscription && (
+          {showConfirmation && pendingTranscription !== null && (
             <Card className="border-2 border-blue-500 dark:border-blue-400">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -325,12 +343,15 @@ export default function DietsPage() {
                   onClick={handleConfirmAndProcess}
                   className="flex-1"
                   disabled={
-                    matchedPatients.length > 1 && !selectedMatchedPatient
+                    (matchedPatients.length > 1 && !selectedMatchedPatient) ||
+                    isProcessing
                   }
                 >
-                  {matchedPatients.length > 0
-                    ? "Confirmar y Generar Dieta"
-                    : "Crear Paciente y Generar Dieta"}
+                  {isProcessing
+                    ? "Generando dieta..."
+                    : matchedPatients.length > 0
+                      ? "Confirmar y Generar Dieta"
+                      : "Crear Paciente y Generar Dieta"}
                 </Button>
                 <Button
                   onClick={handleCancelProcess}

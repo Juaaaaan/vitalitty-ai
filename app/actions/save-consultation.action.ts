@@ -9,7 +9,6 @@ export async function processConsultation(
   existingPatientId?: string,
 ) {
   try {
-    console.log("HOLI");
     const supabase = await createClient();
 
     // 1. Extract data using OpenAI
@@ -98,7 +97,8 @@ export async function processConsultation(
     }
 
     revalidatePath("/dashboard");
-    revalidatePath("/diets");
+    // No revalidamos /diets aquí — hacerlo desde la misma página
+    // congela la UI mientras Next.js re-renderiza el Server Component
 
     return { success: true, patientId };
   } catch (error) {
