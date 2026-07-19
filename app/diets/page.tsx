@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AudioRecorder } from "@/components/audio/audio-recorder";
 import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Download, FileText } from "lucide-react";
 
 export default function DietsPage() {
   const [transcription, setTranscription] = useState("");
@@ -39,6 +39,7 @@ export default function DietsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>();
   const [patients, setPatients] = useState<Patient[]>([]);
+  // const [isPending, startTransition] = useTransition();
 
   // New state for the intelligent flow
   const [pendingTranscription, setPendingTranscription] = useState<
@@ -48,6 +49,8 @@ export default function DietsPage() {
   const [selectedMatchedPatient, setSelectedMatchedPatient] =
     useState<Patient | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [generatedDietMd, setGeneratedDietMd] = useState<string | null>(null);
+  const [generatedPatientName, setGeneratedPatientName] = useState<string>("");
 
   const patientInfoTable = useReactTable({
     data: selectedMatchedPatient ? [selectedMatchedPatient] : [],
@@ -105,6 +108,7 @@ export default function DietsPage() {
     setMatchedPatients([]);
     setSelectedMatchedPatient(null);
     setShowConfirmation(false);
+    setGeneratedDietMd(null);
 
     try {
       // Usamos fetch con FormData — sin Server Actions en esta página
@@ -155,9 +159,13 @@ export default function DietsPage() {
   };
 
   const handleConfirmAndProcess = async () => {
-    if (!pendingTranscription) return;
+    if (!pendingTranscription) {
+      return;
+    }
 
-    console.log("JEJEEJEJJEE");
+    // startTransition(() => {
+    //   setIsProcessing(true);
+    // });
 
     // setIsProcessing(true);
     // setShowConfirmation(false);
@@ -191,6 +199,14 @@ export default function DietsPage() {
         setError(result.error || "Failed to process consultation");
       } else {
         console.log("✅ Consulta procesada exitosamente!", result.patientId);
+
+        setGeneratedDietMd(result.dietMarkdown);
+        setGeneratedPatientName(
+          selectedMatchedPatient?.name_surnames ??
+            result.patientName ??
+            "Paciente",
+        );
+
         setPendingTranscription(null);
         setMatchedPatients([]);
         setSelectedMatchedPatient(null);
@@ -200,9 +216,27 @@ export default function DietsPage() {
         err instanceof Error ? err.message : "Failed to process consultation",
       );
     } finally {
-      // setIsProcessing(false);
-      // setIsTranscribing(false);
+      // startTransition(() => {
+      //   setIsProcessing(false);
+      // });
+      setIsProcessing(false);
+      setIsTranscribing(false);
     }
+  };
+
+  const handleDownloadMd = () => {
+    if (!generatedDietMd) return;
+
+    const fileName = `dieta-${generatedPatientName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.md`;
+    const blob = new Blob([generatedDietMd], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+
+    URL.revokeObjectURL(url);
   };
 
   const handleCancelProcess = () => {
@@ -220,6 +254,7 @@ export default function DietsPage() {
     setMatchedPatients([]);
     setSelectedMatchedPatient(null);
     setShowConfirmation(false);
+    setGeneratedDietMd(null);
   };
 
   return (
@@ -267,6 +302,43 @@ export default function DietsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {generatedDietMd && (
+          <Card className="border-2 border-green-500 dark:border-green-400">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                Dieta Generada
+              </CardTitle>
+              <CardDescription>
+                La dieta de {generatedPatientName} ha sido guardada y está lista
+                para descargar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-48 overflow-y-auto">
+                <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+                  {generatedDietMd.slice(0, 600)}
+                  {generatedDietMd.length > 600 ? "\n..." : ""}
+                </pre>
+              </div>
+            </CardContent>
+            <CardFooter className="flex gap-3">
+              <Button onClick={handleDownloadMd} className="flex-1 gap-2">
+                <Download className="h-4 w-4" />
+                Descargar .md
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onRetryRecording}
+                className="flex-1 gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Nueva consulta
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
 
         {/* Right Column - Confirmation & Patient Info */}
         <div className="space-y-6">

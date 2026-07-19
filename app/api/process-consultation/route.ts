@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
-import { extractPatientData } from "@/services/extraction-service";
+import {
+  extractPatientData,
+  generateDietMarkdown,
+} from "@/services/extraction-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +18,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1. Extract data using OpenAI
-    const { patient, consultation } = await extractPatientData(transcription);
+    // 1. Extraer datos del paciente y generar dieta en paralelo —
+    //    son independientes entre sí, así que no tiene sentido hacerlos en serie.
+    const [{ patient, consultation }, dietMarkdown] = await Promise.all([
+      extractPatientData(transcription),
+      generateDietMarkdown(transcription),
+    ]);
 
     // 2. Get current user (nutritionist)
     const {
@@ -84,14 +91,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Create Consultation Record
+    // 4. Create Consultation Record — incluye el markdown generado
     const { error: consultationError } = await supabase
       .from("patient_consultations")
       .insert({
-        ...consultation, // spread first
-        patient_id: patientId, // explicit fields override anything in consultation
+        ...consultation,
+        patient_id: patientId,
         created_by: user.id,
         audio_transcription: transcription,
+        diet_md: dietMarkdown, // <-- persistir en BD
       });
 
     if (consultationError) {
@@ -105,7 +113,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, patientId });
+    // 5. Devolver el markdown al cliente para que pueda mostrarlo y descargarlo
+    return NextResponse.json({
+      success: true,
+      patientId,
+      patientName: patient.name_surnames,
+      dietMarkdown, // <-- el page.tsx lo usa para el preview y la descarga
+    });
   } catch (error) {
     console.error("Error processing consultation:", error);
     return NextResponse.json(

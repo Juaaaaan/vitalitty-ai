@@ -1,7 +1,10 @@
 "use server";
 
 import { createClient } from "../../lib/supabase/server";
-import { extractPatientData } from "@/services/extraction-service";
+import {
+  extractPatientData,
+  generateDietMarkdown,
+} from "@/services/extraction-service";
 import { revalidatePath } from "next/cache";
 
 export async function processConsultation(
@@ -11,8 +14,13 @@ export async function processConsultation(
   try {
     const supabase = await createClient();
 
-    // 1. Extract data using OpenAI
-    const { patient, consultation } = await extractPatientData(transcription);
+    // 1. Extraer datos del paciente y consulta + generar dieta en paralelo
+    //    Ambas llamadas usan la misma transcripción como entrada y son independientes,
+    //    por lo que se pueden ejecutar en paralelo para reducir latencia total.
+    const [{ patient, consultation }, dietMarkdown] = await Promise.all([
+      extractPatientData(transcription),
+      generateDietMarkdown(transcription),
+    ]);
 
     // 2. Get current user (nutritionist)
     const {
@@ -27,7 +35,6 @@ export async function processConsultation(
     if (patientId) {
       // Update existing patient with new data found in audio (e.g. updated weight/age)
       // We only update fields that are present (not null/undefined) from extraction
-      // To do this cleanly, we can filter undefined values from 'patient' object
       const updates = Object.fromEntries(
         Object.entries(patient).filter(([_, v]) => v != null),
       );
@@ -79,26 +86,23 @@ export async function processConsultation(
       }
     }
 
-    // 4. Create Consultation Record
+    // 4. Create Consultation Record — incluye el markdown de la dieta
     const { error: consultationError } = await supabase
       .from("patient_consultations")
       .insert({
-        // patient_id: patientId,
-        // created_by: user.id,
         audio_transcription: transcription,
+        diet_md: dietMarkdown, // <-- nuevo campo
         ...consultation,
       });
 
     if (consultationError) {
-      console.log(consultationError);
+      console.error(consultationError);
       throw new Error(
         `Error creating consultation: ${consultationError.message}`,
       );
     }
 
     revalidatePath("/dashboard");
-    // No revalidamos /diets aquí — hacerlo desde la misma página
-    // congela la UI mientras Next.js re-renderiza el Server Component
 
     return { success: true, patientId };
   } catch (error) {
