@@ -18,27 +18,8 @@ export async function transcribeAudio(
 
     console.log({ transcription });
 
-    // With the trasncription I need to call ChatGPT to prompt the transcription with the goal: get a diet plan for the patient
-    const chatCompletion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Usted es nutricionista titulado y dietista profesional. Su objetivo es desarrollar un plan de alimentación para el paciente basándose en la siguiente transcripción.",
-        },
-        {
-          role: "user",
-          content: transcription.text,
-        },
-      ],
-    });
-
-    console.log({ chatCompletion });
-
     return {
-      text: chatCompletion.choices[0].message.content ?? "",
+      text: transcription.text,
     };
   } catch (error) {
     return {
