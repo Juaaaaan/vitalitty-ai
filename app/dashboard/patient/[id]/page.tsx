@@ -4,51 +4,71 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase/client";
 import { Patient } from "@/models/dashboard/patients";
+import { ConsultationData } from "@/models/extraction/extraction.models";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeftIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ArrowLeftIcon,
+  UserIcon,
+  ScaleIcon,
+  RulerIcon,
+  CalendarIcon,
+  PhoneIcon,
+  MailIcon,
+  FileTextIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+} from "lucide-react";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { MAGIC_NUMBERS } from "@/constants/magic-numbers";
-import { MONTHS } from "@/constants/months";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-const patientToGraphBar = (patient: Patient) => {
-  return patient?.consultations?.map((consultation) => ({
-    month: MONTHS[new Date(consultation.created_at).getMonth() + 1],
-    weight: 100,
-    height: 100,
-  }));
+// Extended ConsultationData with DB fields
+interface ConsultationRecord extends ConsultationData {
+  id: string;
+  patient_id: string;
+  created_at: string;
+  created_by: string;
+  diet_md?: string | null;
+  documento_url?: string | null;
+  dieta_generada?: string | null;
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 const chartConfig = {
-  weight: {
-    label: "Peso",
+  calorias: {
+    label: "Kcal objetivo",
     color: "var(--chart-1)",
-  },
-  height: {
-    label: "Altura",
-    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
 export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [consultations, setConsultations] = useState<ConsultationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<string>("");
 
   useEffect(() => {
-    // Unwrap the params Promise
     params.then((resolvedParams) => {
       setPatientId(resolvedParams.id);
     });
@@ -65,24 +85,16 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
           supabase
             .from("patient_consultations")
             .select("*")
-            .eq("patient_id", patientId),
+            .eq("patient_id", patientId)
+            .order("created_at", { ascending: true }),
         ]);
 
         if (patientData.error || consultationsData.error) {
           throw patientData.error || consultationsData.error;
         }
 
-        // Transform gender for display
-        if (patientData && patientData.data) {
-          patientData.data.gender =
-            patientData.data.gender === "M" ? "Masculino" : "Femenino";
-        }
-
-        const combinedData = {
-          ...patientData.data, // Todos los campos del paciente
-          consultations: consultationsData.data || [], // Array de consultas
-        };
-        setPatient(combinedData);
+        setPatient(patientData.data);
+        setConsultations(consultationsData.data || []);
       } catch (err) {
         console.error("Error fetching patient:", err);
         setError(
@@ -96,11 +108,22 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
     fetchPatient();
   }, [patientId]);
 
+  // Build chart data: one bar per consultation that has kcal data
+  const chartData = consultations
+    .filter((c) => c.objetivo_calorias != null)
+    .map((c, idx) => ({
+      label: `C${idx + 1} · ${formatDate(c.created_at)}`,
+      calorias: c.objetivo_calorias,
+    }));
+
+  const consultationsWithDiet = consultations.filter((c) => c.diet_md);
+  const latestConsultation = consultations.at(-1);
+
   if (loading) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <p className="text-lg text-gray-900 dark:text-white">
-          Cargando información del paciente...
+        <p className="text-lg text-gray-500 dark:text-gray-400">
+          Cargando información del paciente…
         </p>
       </div>
     );
@@ -118,7 +141,6 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Volver al Dashboard
           </Button>
-
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-red-800 dark:text-red-400 mb-2">
               Error
@@ -132,97 +154,307 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
     );
   }
 
+  const genderLabel = patient.gender === "M" ? "Masculino" : "Femenino";
+
   return (
     <div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto">
-        {/* Header con botón de volver */}
-        <div className="mb-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* ── Header ── */}
+        <div>
           <Button
             variant="ghost"
             onClick={() => router.push("/dashboard")}
-            className="mb-4"
+            className="mb-4 -ml-2"
           >
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Volver al Dashboard
           </Button>
           <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
-            Detalle del Paciente
+            {patient.name_surnames}
           </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {consultations.length}{" "}
+            {consultations.length === 1
+              ? "consulta registrada"
+              : "consultas registradas"}
+            {consultationsWithDiet.length > MAGIC_NUMBERS.ZERO && (
+              <>
+                {" "}
+                · {consultationsWithDiet.length}{" "}
+                {consultationsWithDiet.length === 1
+                  ? "dieta generada"
+                  : "dietas generadas"}
+              </>
+            )}
+          </p>
         </div>
 
-        <Separator className="mb-6 dark:bg-gray-700" />
+        <Separator className="dark:bg-gray-700" />
 
-        {/* TODO - Hacer llamada a backend para obtener los datos del paciente más en detalle. La tabla es (patient_consultations).
-        // TODO - Botón de generar dieta. Navegará a la página de diets
-        // TODO - Sección para descargar todas las dietas generadas
-        // 1. Puede ser en la tabla de dietas*/}
-
-        <section className="my-6">
-          <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
-            <BarChart accessibilityLayer data={patientToGraphBar(patient) || []}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
-              <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
-            </BarChart>
-          </ChartContainer>
-        </section>
-
-        <div className="bg-white shadow-md rounded-lg p-6 space-y-6">
-          <div>
-            <h3>
-              <b>{patient.name_surnames}</b> ha venido a consulta{" "}
-              {patient?.consultations?.length}{" "}
-              {patient?.consultations?.length === 1 ? "vez" : "veces"}
-            </h3>
-          </div>
-        </div>
-
-        <section className="my-6">
-          <ChartContainer config={chartConfig} className="max-h-[250px] w-full">
-            <BarChart accessibilityLayer data={patientToGraphBar(patient)}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
-              <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
-            </BarChart>
-          </ChartContainer>
-        </section>
-
-        <section className="mt-6">
-          <div>
-            {patient &&
-              patient.consultations &&
-              patient.consultations.length > MAGIC_NUMBERS.ZERO && (
-                <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 space-y-6 mt-6">
-                  {patient.consultations.map((consultation) => (
-                    <div key={consultation.id}>
-                      <p className="text-xs font-light text-gray-700 dark:text-gray-300">
-                        <b>Objetivo:</b> {consultation.objetivo_descripcion}
-                      </p>
-                      <p className="text-xs font-light text-gray-700 dark:text-gray-300">
-                        <b>Calorías:</b> {consultation.objetivo_calorias} kcal
-                      </p>
-                    </div>
-                  ))}
+        {/* ── Datos del paciente ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+            Datos del paciente
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="flex items-start gap-2">
+              <UserIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Género
+                </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {genderLabel}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <CalendarIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Edad</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {patient.age ? `${patient.age} años` : "—"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <ScaleIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Peso</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {patient.weight ? `${patient.weight} kg` : "—"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <RulerIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Altura
+                </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {patient.height ? `${patient.height} cm` : "—"}
+                </p>
+              </div>
+            </div>
+            {patient.mail && (
+              <div className="flex items-start gap-2">
+                <MailIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Email
+                  </p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white break-all">
+                    {patient.mail}
+                  </p>
                 </div>
-              )}
+              </div>
+            )}
+            {patient.phone && (
+              <div className="flex items-start gap-2">
+                <PhoneIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Teléfono
+                  </p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {patient.phone}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </section>
+
+          {/* Objetivo más reciente */}
+          {latestConsultation?.objetivo_descripcion && (
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Objetivo actual
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {latestConsultation.objetivo_descripcion}
+              </p>
+              {latestConsultation.objetivo_tipo &&
+                latestConsultation.objetivo_tipo.length >
+                  MAGIC_NUMBERS.ZERO && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {latestConsultation.objetivo_tipo.map((tipo) => (
+                      <Badge key={tipo} variant="secondary" className="text-xs">
+                        {tipo}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Gráfica de calorías ── */}
+        {chartData.length > MAGIC_NUMBERS.ZERO ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+              Evolución calórica
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Calorías objetivo registradas por consulta
+            </p>
+            <ChartContainer
+              config={chartConfig}
+              className="max-h-[220px] w-full"
+            >
+              <BarChart data={chartData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  tickMargin={8}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  width={45}
+                  tickFormatter={(v) => `${v}`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="calorias"
+                  fill="var(--color-calorias)"
+                  radius={4}
+                />
+              </BarChart>
+            </ChartContainer>
+          </div>
+        ) : null}
+
+        {/* ── Historial de consultas ── */}
+        {consultations.length > MAGIC_NUMBERS.ZERO && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Historial de consultas
+              </h2>
+            </div>
+            <ScrollArea className="h-[420px]">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {[...consultations].reverse().map((consultation, idx) => {
+                  const hasDiet = !!consultation.diet_md;
+                  const consultationNumber = consultations.length - idx;
+
+                  return (
+                    <div
+                      key={consultation.id}
+                      className="px-6 py-4 flex items-start gap-4"
+                    >
+                      {/* Nº consulta */}
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          {consultationNumber}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {formatDate(consultation.created_at)}
+                          </span>
+                          {consultation.objetivo_calorias && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              · {consultation.objetivo_calorias} kcal
+                            </span>
+                          )}
+                          {hasDiet ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-green-700 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-700 dark:bg-green-900/20"
+                            >
+                              <CheckCircle2Icon className="h-3 w-3 mr-1" />
+                              Dieta generada
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-gray-500 border-gray-200 dark:border-gray-600"
+                            >
+                              <ClockIcon className="h-3 w-3 mr-1" />
+                              Sin dieta
+                            </Badge>
+                          )}
+                        </div>
+
+                        {consultation.objetivo_descripcion && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                            {consultation.objetivo_descripcion}
+                          </p>
+                        )}
+
+                        {consultation.objetivo_tipo &&
+                          consultation.objetivo_tipo.length >
+                            MAGIC_NUMBERS.ZERO && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {consultation.objetivo_tipo.map((tipo) => (
+                                <Badge
+                                  key={tipo}
+                                  variant="secondary"
+                                  className="text-xs py-0"
+                                >
+                                  {tipo}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                      </div>
+
+                      {/* Acción */}
+                      <div className="shrink-0">
+                        {consultation.documento_url ? (
+                          <a
+                            href={consultation.documento_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 px-2"
+                            >
+                              <FileTextIcon className="h-3 w-3 mr-1" />
+                              Ver dieta
+                            </Button>
+                          </a>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2"
+                            onClick={() =>
+                              router.push(
+                                `/diets?consultation=${consultation.id}`,
+                              )
+                            }
+                          >
+                            <FileTextIcon className="h-3 w-3 mr-1" />
+                            Generar dieta
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
+        {consultations.length === MAGIC_NUMBERS.ZERO && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-12 shadow-sm text-center">
+            <p className="text-gray-400 dark:text-gray-500 text-sm">
+              No hay consultas registradas para este paciente.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

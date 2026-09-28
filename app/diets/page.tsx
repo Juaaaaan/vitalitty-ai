@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { AudioRecorder } from "@/components/audio/audio-recorder";
 import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, Download, FileText } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  FileText,
+  Upload,
+  ExternalLink,
+} from "lucide-react";
 
 export default function DietsPage() {
   const [transcription, setTranscription] = useState("");
@@ -51,6 +58,15 @@ export default function DietsPage() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [generatedDietMd, setGeneratedDietMd] = useState<string | null>(null);
   const [generatedPatientName, setGeneratedPatientName] = useState<string>("");
+
+  // Estado para subida de dieta
+  const [savedConsultationId, setSavedConsultationId] = useState<string | null>(
+    null,
+  );
+  const [savedPatientId, setSavedPatientId] = useState<string | null>(null);
+  const [isSavingDiet, setIsSavingDiet] = useState(false);
+  const [dietSavedUrl, setDietSavedUrl] = useState<string | null>(null);
+  const [dietSaveError, setDietSaveError] = useState<string | null>(null);
 
   const patientInfoTable = useReactTable({
     data: selectedMatchedPatient ? [selectedMatchedPatient] : [],
@@ -109,6 +125,11 @@ export default function DietsPage() {
     setSelectedMatchedPatient(null);
     setShowConfirmation(false);
     setGeneratedDietMd(null);
+    // Resetear estado de subida al iniciar nueva grabación
+    setSavedConsultationId(null);
+    setSavedPatientId(null);
+    setDietSavedUrl(null);
+    setDietSaveError(null);
 
     try {
       // Usamos fetch con FormData — sin Server Actions en esta página
@@ -163,17 +184,6 @@ export default function DietsPage() {
       return;
     }
 
-    // startTransition(() => {
-    //   setIsProcessing(true);
-    // });
-
-    // setIsProcessing(true);
-    // setShowConfirmation(false);
-
-    // setTimeout(() => {
-    //   setIsProcessing(false);
-    // }, 3000);
-
     try {
       console.log("Processing consultation...");
       // Usamos fetch en lugar de Server Action para evitar que React bloquee la UI
@@ -206,6 +216,9 @@ export default function DietsPage() {
             result.patientName ??
             "Paciente",
         );
+        // Guardar ids para la subida posterior
+        setSavedConsultationId(result.consultationId ?? null);
+        setSavedPatientId(result.patientId ?? null);
 
         setPendingTranscription(null);
         setMatchedPatients([]);
@@ -216,11 +229,41 @@ export default function DietsPage() {
         err instanceof Error ? err.message : "Failed to process consultation",
       );
     } finally {
-      // startTransition(() => {
-      //   setIsProcessing(false);
-      // });
       setIsProcessing(false);
       setIsTranscribing(false);
+    }
+  };
+
+  const handleSaveDiet = async () => {
+    if (!savedConsultationId || !savedPatientId || !generatedDietMd) return;
+
+    setIsSavingDiet(true);
+    setDietSaveError(null);
+
+    try {
+      const response = await fetch("/api/upload-diet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consultationId: savedConsultationId,
+          patientId: savedPatientId,
+          dietMd: generatedDietMd,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.url) {
+        setDietSavedUrl(result.url);
+      } else {
+        setDietSaveError(result.error ?? "Error al guardar la dieta");
+      }
+    } catch (err) {
+      setDietSaveError(
+        err instanceof Error ? err.message : "Error al guardar la dieta",
+      );
+    } finally {
+      setIsSavingDiet(false);
     }
   };
 
@@ -255,6 +298,10 @@ export default function DietsPage() {
     setSelectedMatchedPatient(null);
     setShowConfirmation(false);
     setGeneratedDietMd(null);
+    setSavedConsultationId(null);
+    setSavedPatientId(null);
+    setDietSavedUrl(null);
+    setDietSaveError(null);
   };
 
   return (
@@ -315,16 +362,52 @@ export default function DietsPage() {
                 para descargar.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-48 overflow-y-auto">
                 <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
                   {generatedDietMd.slice(0, 600)}
                   {generatedDietMd.length > 600 ? "\n..." : ""}
                 </pre>
               </div>
+
+              {/* Sección de subida */}
+              {dietSavedUrl ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>Dieta guardada en la nube.</span>
+                  <a
+                    href={dietSavedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 underline font-medium"
+                  >
+                    Ver fichero
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleSaveDiet}
+                    // disabled={isSavingDiet || !savedConsultationId}
+                    className="w-full gap-2"
+                    variant="default"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {isSavingDiet ? "Guardando en la nube…" : "Guardar dieta"}
+                  </Button>
+                  {dietSaveError && (
+                    <p className="text-xs text-red-500">{dietSaveError}</p>
+                  )}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex gap-3">
-              <Button onClick={handleDownloadMd} className="flex-1 gap-2">
+              <Button
+                onClick={handleDownloadMd}
+                variant="outline"
+                className="flex-1 gap-2"
+              >
                 <Download className="h-4 w-4" />
                 Descargar .md
               </Button>

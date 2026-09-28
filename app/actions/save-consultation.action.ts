@@ -87,13 +87,16 @@ export async function processConsultation(
     }
 
     // 4. Create Consultation Record — incluye el markdown de la dieta
-    const { error: consultationError } = await supabase
-      .from("patient_consultations")
-      .insert({
-        audio_transcription: transcription,
-        diet_md: dietMarkdown, // <-- nuevo campo
-        ...consultation,
-      });
+    const { data: consultationRecord, error: consultationError } =
+      await supabase
+        .from("patient_consultations")
+        .insert({
+          audio_transcription: transcription,
+          diet_md: dietMarkdown, // <-- nuevo campo
+          ...consultation,
+        })
+        .select("id, diet_md") // ← nuevo
+        .single(); // ← nuevo;
 
     if (consultationError) {
       console.error(consultationError);
