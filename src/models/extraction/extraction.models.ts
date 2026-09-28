@@ -43,4 +43,8 @@ export interface ConsultationData {
   gustos_preferencias?: string[]; // Array
   alimentos_evitar?: string[]; // Array
   alimentos_priorizar?: string[]; // Array
+  /** Resumen breve de la consulta, memoria para generaciones futuras. */
+  consultation_summary?: string | null;
+  /** Versión de la dieta dentro del paciente. La asigna la base de datos. */
+  diet_version?: number | null;
 }

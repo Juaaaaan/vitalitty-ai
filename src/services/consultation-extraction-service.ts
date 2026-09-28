@@ -41,23 +41,34 @@ El nutricionista dicta en voz alta siguiendo un guión estructurado. Tu trabajo 
 ### Horario diario
 - Extrae el horario completo de ingestas si se menciona, incluyendo hora de despertar, cada ingesta y hora de dormir
 
+### Resumen de la consulta
+- consultation_summary: entre 3 y 6 frases, en español, que sirvan de memoria para la próxima consulta de este paciente
+- Recoge el objetivo, los cambios decididos respecto al plan anterior, las restricciones y preferencias mencionadas (alergias, intolerancias, alimentos a evitar o priorizar) y los datos clínicos relevantes
+- Solo lo que se dice en la transcripción: no menciones patologías, medicación ni intolerancias que no aparezcan
+- Si la transcripción no da para un resumen útil, devuelve cadena vacía ""
+
 ## REGLA QUE NO SE NEGOCIA
 
-Si un dato no se menciona en la transcripción, devuelve null. Nunca lo inventes ni lo estimes a partir de lo que suele ser habitual.`;
+Si un dato no se menciona en la transcripción, devuelve null en los números, cadena vacía "" en los textos y lista vacía [] en las listas. Nunca lo inventes ni lo estimes a partir de lo que suele ser habitual.`;
 
-const nullableString = { type: ["string", "null"] } as const;
+// La API admite como mucho 16 parámetros con unión de tipos (`type: [...]` o
+// `anyOf`) por schema; con todo nullable eran 27 y cada extracción fallaba con
+// un 400. Por eso textos y listas no son nullable: "" y [] significan "no se
+// menciona" y `normalizeExtraction` los convierte en null. Solo los números,
+// donde 0 sería un valor real, siguen siendo nullable.
+const optionalString = { type: "string" } as const;
 const nullableNumber = { type: ["number", "null"] } as const;
-const nullableStringArray = {
-  type: ["array", "null"],
+const optionalStringArray = {
+  type: "array",
   items: { type: "string" },
 } as const;
 
 const PATIENT_PROPERTIES = {
   name_surnames: { type: "string" },
-  mail: nullableString,
+  mail: optionalString,
   age: nullableNumber,
-  phone: nullableString,
-  gender: { type: ["string", "null"], enum: ["M", "F", "O", null] },
+  phone: optionalString,
+  gender: { type: "string", enum: ["M", "F", "O", ""] },
   height: {
     type: ["number", "null"],
     description: "Altura en cm, siempre normalizada a entero",
@@ -70,36 +81,41 @@ const CONSULTATION_PROPERTIES = {
     type: ["number", "null"],
     description: "Si se da un rango por kg, calcular la media × peso",
   },
-  objetivo_descripcion: nullableString,
-  objetivo_tipo: nullableStringArray,
-  objetivo_justificacion: nullableString,
-  resultados_analiticos: nullableString,
+  objetivo_descripcion: optionalString,
+  objetivo_tipo: optionalStringArray,
+  objetivo_justificacion: optionalString,
+  resultados_analiticos: optionalString,
   suplementos: {
-    type: ["string", "null"],
+    type: "string",
     description:
       "Suplementos con dosis y frecuencia, p. ej. 'Creatina 8g/día (4g+4g)'",
   },
-  alergias_intolerancias: nullableStringArray,
-  cirugias: nullableString,
+  alergias_intolerancias: optionalStringArray,
+  cirugias: optionalString,
   medicacion: {
-    type: ["string", "null"],
+    type: "string",
     description:
       "Medicación con dosis y frecuencia, p. ej. 'Finasteride 1mg/día'",
   },
-  patologias: nullableStringArray,
-  actividad_fisica_duracion: nullableString,
-  actividad_fisica_tipo: nullableString,
+  patologias: optionalStringArray,
+  actividad_fisica_duracion: optionalString,
+  actividad_fisica_tipo: optionalString,
   actividad_fisica_perfil: {
-    type: ["string", "null"],
+    type: "string",
     description: "sedentario / activo / muy activo / deportista",
   },
-  actividad_diaria: nullableString,
-  horario_dia_normal: nullableString,
+  actividad_diaria: optionalString,
+  horario_dia_normal: optionalString,
   horas_sueno: nullableNumber,
-  cantidad_agua: nullableString,
-  gustos_preferencias: nullableStringArray,
-  alimentos_evitar: nullableStringArray,
-  alimentos_priorizar: nullableStringArray,
+  cantidad_agua: optionalString,
+  gustos_preferencias: optionalStringArray,
+  alimentos_evitar: optionalStringArray,
+  alimentos_priorizar: optionalStringArray,
+  consultation_summary: {
+    type: "string",
+    description:
+      "Resumen breve de la consulta (3-6 frases): objetivo, cambios decididos, restricciones y preferencias, datos clínicos relevantes. Solo lo dicho.",
+  },
 } as const;
 
 const EXTRACTION_SCHEMA = {
@@ -160,5 +176,32 @@ export async function extractConsultationData(
     throw new Error("La extracción no devolvió contenido de texto");
   }
 
-  return JSON.parse(textBlock.text) as ExtractionResult;
+  return normalizeExtraction(JSON.parse(textBlock.text));
+}
+
+type RawExtraction = {
+  patient: Record<string, unknown>;
+  consultation: Record<string, unknown>;
+};
+
+function emptyToNull(record: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => {
+      if (typeof value === "string" && value.trim() === "") return [key, null];
+      if (Array.isArray(value) && value.length === 0) return [key, null];
+      return [key, value];
+    }),
+  );
+}
+
+/**
+ * "" y [] son la forma de decir "no se menciona" en el schema (ver el
+ * comentario de `optionalString`). Hacia fuera siguen siendo null, que es lo
+ * que esperan `persist()` y la memoria del paciente.
+ */
+export function normalizeExtraction(raw: RawExtraction): ExtractionResult {
+  return {
+    patient: emptyToNull(raw.patient) as unknown as PatientData,
+    consultation: emptyToNull(raw.consultation) as unknown as ConsultationData,
+  };
 }

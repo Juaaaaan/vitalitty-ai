@@ -1,7 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import anthropic from "../../lib/ai/anthropic";
 import { DIET_EXAMPLES } from "@/constants/diet-examples";
-import type { Patient } from "@/models/dashboard/patients";
+import { CLINICAL_FIELD_LABELS } from "@/constants/patient-memory";
+import type { PatientMemory } from "@/models/patient-context/patient-memory.models";
 
 export const DIET_GENERATION_MODEL = "claude-opus-5";
 
@@ -75,6 +76,16 @@ BIEN: "Avena (60 g) con leche semidesnatada (200 ml), plátano y nueces (20 g)"
 
 Especifica siempre alimento + cantidad aproximada + técnica de cocinado.
 
+## MEMORIA DEL PACIENTE
+
+Si el paciente ya ha venido antes, recibes antes de la transcripción un bloque MEMORIA DEL PACIENTE con su ficha (datos y último valor conocido de alergias, intolerancias, patologías, medicación, preferencias y alimentos a evitar o priorizar) y un resumen de sus consultas más recientes.
+
+- Es conocimiento previo sobre este paciente: úsalo aunque la transcripción no lo repita
+- Las alergias, intolerancias y alimentos a evitar de la ficha se respetan siempre: ningún alimento que los contradiga entra en la dieta
+- La transcripción de hoy manda: si contradice algo de la memoria (retira una intolerancia, cambia el objetivo, el peso o una preferencia), sigue la transcripción
+- Los resúmenes cuentan qué se decidió en consultas anteriores; úsalos para entender la evolución, no como instrucciones para hoy
+- No copies la ficha ni los resúmenes en el documento
+
 ## REGLAS DE SALIDA
 
 - Devuelve únicamente el documento en markdown. Nada de preámbulos, comentarios ni explicaciones de lo que has hecho
@@ -114,28 +125,49 @@ ${renderExamples()}`;
 
 export type DietGenerationInput = {
   transcription: string;
-  patient?: Pick<
-    Patient,
-    "name_surnames" | "age" | "gender" | "height" | "weight"
-  > | null;
-  /** Dieta anterior del paciente. Si viene, se genera en modo revisión. */
-  previousDietMd?: string | null;
+  /**
+   * Memoria del paciente existente. `null` para un paciente nuevo: entonces el
+   * contexto es solo el bloque estático y la transcripción.
+   */
+  memory?: PatientMemory | null;
 };
 
-function renderPatientContext(input: DietGenerationInput): string | null {
-  const { patient } = input;
-  if (!patient) return null;
+function formatValue(value: string | string[] | number): string {
+  return Array.isArray(value) ? value.join(", ") : String(value);
+}
 
-  const fields: string[] = [];
-  if (patient.name_surnames) fields.push(`- Nombre: ${patient.name_surnames}`);
-  if (patient.age) fields.push(`- Edad: ${patient.age} años`);
-  if (patient.gender) fields.push(`- Género: ${patient.gender}`);
-  if (patient.height) fields.push(`- Altura: ${patient.height} cm`);
-  if (patient.weight) fields.push(`- Peso: ${patient.weight} kg`);
+/**
+ * Bloque de memoria del paciente. Determinista: campos en orden fijo y sin
+ * valores "de ahora", para que el mismo paciente produzca el mismo texto.
+ */
+function renderPatientMemory(memory: PatientMemory): string {
+  const { personal, clinical, summaries } = memory;
 
-  if (fields.length === 0) return null;
+  const profile: string[] = [];
+  if (personal.name_surnames)
+    profile.push(`- Nombre: ${personal.name_surnames}`);
+  if (personal.age) profile.push(`- Edad: ${personal.age} años`);
+  if (personal.gender) profile.push(`- Género: ${personal.gender}`);
+  if (personal.height) profile.push(`- Altura: ${personal.height} cm`);
+  if (personal.weight) profile.push(`- Peso: ${personal.weight} kg`);
+  for (const [field, label] of CLINICAL_FIELD_LABELS) {
+    const value = clinical[field];
+    if (value != null) profile.push(`- ${label}: ${formatValue(value)}`);
+  }
 
-  return `CONTEXTO DEL PACIENTE\n\n${fields.join("\n")}`;
+  const sections = [
+    `MEMORIA DEL PACIENTE\n\n### Ficha\n\n${profile.length > 0 ? profile.join("\n") : "—"}`,
+  ];
+
+  if (summaries.length > 0) {
+    const lines = summaries.map(
+      ({ version, date, summary }) =>
+        `- ${version != null ? `Dieta v${version}` : "Consulta"} (${date}): ${summary}`,
+    );
+    sections.push(`### Consultas recientes\n\n${lines.join("\n")}`);
+  }
+
+  return sections.join("\n\n");
 }
 
 /**
@@ -151,13 +183,15 @@ export function buildDietGenerationRequest(
 ): Anthropic.MessageCreateParamsStreaming {
   const userBlocks: string[] = [];
 
-  const patientContext = renderPatientContext(input);
-  if (patientContext) userBlocks.push(patientContext);
+  const { memory } = input;
+  if (memory) {
+    userBlocks.push(renderPatientMemory(memory));
 
-  if (input.previousDietMd) {
-    userBlocks.push(
-      `${EDIT_MODE_INSTRUCTIONS}\n\nDIETA ANTERIOR DEL PACIENTE\n\n${input.previousDietMd}`,
-    );
+    if (memory.lastDietMd) {
+      userBlocks.push(
+        `${EDIT_MODE_INSTRUCTIONS}\n\nDIETA ANTERIOR DEL PACIENTE\n\n${memory.lastDietMd}`,
+      );
+    }
   }
 
   userBlocks.push(`TRANSCRIPCIÓN DE LA CONSULTA\n\n${input.transcription}`);

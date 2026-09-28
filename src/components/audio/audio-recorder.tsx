@@ -5,11 +5,14 @@ import { Button } from "../ui/button";
 type AudioRecorderProps = {
   onRetryRecording: () => void;
   onRecordingComplete: (audioBlob: Blob) => void;
+  /** Impide empezar a grabar. Una grabación ya en curso se puede parar igual. */
+  disabled?: boolean;
 };
 
 export function AudioRecorder({
   onRetryRecording,
   onRecordingComplete,
+  disabled = false,
 }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
@@ -116,6 +119,7 @@ export function AudioRecorder({
       {!recordedAudioUrl && (
         <Button
           onClick={isRecording ? handleStopRecording : handleStartRecording}
+          disabled={disabled && !isRecording}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-white ${
             isRecording
               ? "bg-red-600 hover:bg-red-700"

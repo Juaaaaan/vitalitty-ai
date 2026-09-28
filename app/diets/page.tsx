@@ -14,6 +14,9 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { COLUMNS_PATIENTS } from "@/constants/dashboard";
+import { CHOOSE_PATIENT_TO_RECORD_MESSAGE } from "@/constants/patient-memory";
+import type { PatientMode } from "@/models/patient-context/patient-memory.models";
+import { PatientPicker } from "@/components/patients/patient-picker";
 import {
   Table,
   TableBody,
@@ -30,7 +33,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2,
   AlertCircle,
@@ -38,6 +40,8 @@ import {
   FileText,
   Upload,
   ExternalLink,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 export default function DietsPage() {
@@ -47,19 +51,21 @@ export default function DietsPage() {
   const [error, setError] = useState<string>();
   const [patients, setPatients] = useState<Patient[]>([]);
 
-  // New state for the intelligent flow
+  // Elección explícita antes de grabar: nunca se adivina por la transcripción.
+  const [patientMode, setPatientMode] = useState<PatientMode | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
+    null,
+  );
   const [pendingTranscription, setPendingTranscription] = useState<
     string | null
   >(null);
-  const [matchedPatients, setMatchedPatients] = useState<Patient[]>([]);
-  const [selectedMatchedPatient, setSelectedMatchedPatient] =
-    useState<Patient | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [generatedDietMd, setGeneratedDietMd] = useState<string | null>(null);
   const [thinkingSummary, setThinkingSummary] = useState("");
   const [generationInterrupted, setGenerationInterrupted] = useState(false);
   const [, startTransition] = useTransition();
   const [generatedPatientName, setGeneratedPatientName] = useState<string>("");
+  const [dietVersion, setDietVersion] = useState<number | null>(null);
 
   // Estado para subida de dieta
   const [savedConsultationId, setSavedConsultationId] = useState<string | null>(
@@ -74,10 +80,26 @@ export default function DietsPage() {
   // hace que TanStack Table recalcule filas y resetee la paginación, lo que
   // dispara otro render, y así en bucle: con la tabla montada, cualquier
   // setState (p. ej. cada fragmento del stream) congela la pestaña entera.
-  const patientInfoData = useMemo(
-    () => (selectedMatchedPatient ? [selectedMatchedPatient] : []),
-    [selectedMatchedPatient],
+  const selectedPatient = useMemo(
+    () =>
+      patientMode === "existing"
+        ? (patients.find((patient) => patient.id === selectedPatientId) ?? null)
+        : null,
+    [patientMode, patients, selectedPatientId],
   );
+
+  const patientInfoData = useMemo(
+    () => (selectedPatient ? [selectedPatient] : []),
+    [selectedPatient],
+  );
+
+  const isPatientChosen =
+    patientMode === "new" ||
+    (patientMode === "existing" && selectedPatient !== null);
+
+  // Una vez grabada la consulta, la elección queda fijada hasta "Nueva consulta".
+  const isPatientChoiceLocked =
+    pendingTranscription !== null || generatedDietMd !== null;
 
   const patientInfoTable = useReactTable({
     data: patientInfoData,
@@ -103,39 +125,13 @@ export default function DietsPage() {
     setPatients(formattedPatients || []);
   };
 
-  // Function to find matching patients based on transcription
-  const findMatchingPatients = (transcriptionText: string): Patient[] => {
-    const lowerTranscription = transcriptionText.toLowerCase();
-
-    return patients.filter((patient) => {
-      // Check if name appears in transcription
-      const nameParts = patient.name_surnames?.toLowerCase().split(" ") || [];
-      const nameMatch = nameParts.some((part) =>
-        lowerTranscription.includes(part),
-      );
-
-      // Check if email appears in transcription
-      const emailMatch = patient.mail
-        ? lowerTranscription.includes(patient.mail.toLowerCase())
-        : false;
-
-      // Check if phone appears in transcription
-      const phoneMatch = patient.phone
-        ? lowerTranscription.includes(patient.phone)
-        : false;
-
-      return nameMatch || emailMatch || phoneMatch;
-    });
-  };
-
   const handleRecordingComplete = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     setError(undefined);
     setPendingTranscription(null);
-    setMatchedPatients([]);
-    setSelectedMatchedPatient(null);
     setShowConfirmation(false);
     setGeneratedDietMd(null);
+    setDietVersion(null);
     // Resetear estado de subida al iniciar nueva grabación
     setSavedConsultationId(null);
     setSavedPatientId(null);
@@ -170,16 +166,7 @@ export default function DietsPage() {
 
       setTranscription(result.text);
 
-      console.log("📝 Transcripción completada:", result.text);
       setPendingTranscription(result.text);
-
-      const matches = findMatchingPatients(result.text);
-      console.log("🔍 Pacientes encontrados:", matches);
-
-      setMatchedPatients(matches);
-      if (matches.length === 1) {
-        setSelectedMatchedPatient(matches[0]);
-      }
       setShowConfirmation(true);
     } catch (err) {
       setError(
@@ -191,7 +178,7 @@ export default function DietsPage() {
   };
 
   const handleConfirmAndProcess = async () => {
-    if (!pendingTranscription) {
+    if (!pendingTranscription || !isPatientChosen) {
       return;
     }
 
@@ -201,9 +188,8 @@ export default function DietsPage() {
       setGeneratedDietMd("");
       setThinkingSummary("");
       setGenerationInterrupted(false);
-      setGeneratedPatientName(
-        selectedMatchedPatient?.name_surnames ?? "Paciente",
-      );
+      setGeneratedPatientName(selectedPatient?.name_surnames ?? "Paciente");
+      setDietVersion(null);
       setShowConfirmation(false);
       setError(undefined);
     });
@@ -216,7 +202,8 @@ export default function DietsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           transcription: pendingTranscription,
-          existingPatientId: selectedMatchedPatient?.id ?? null,
+          patientMode,
+          patientId: patientMode === "existing" ? selectedPatient?.id : null,
         }),
       });
 
@@ -261,14 +248,13 @@ export default function DietsPage() {
               setThinkingSummary("");
               setSavedConsultationId(event.consultationId);
               setSavedPatientId(event.patientId);
+              setDietVersion(event.dietVersion ?? null);
               setGeneratedPatientName(
-                selectedMatchedPatient?.name_surnames ??
+                selectedPatient?.name_surnames ??
                   event.patientName ??
                   "Paciente",
               );
               setPendingTranscription(null);
-              setMatchedPatients([]);
-              setSelectedMatchedPatient(null);
             });
           }
         }
@@ -340,8 +326,6 @@ export default function DietsPage() {
 
   const handleCancelProcess = () => {
     setPendingTranscription(null);
-    setMatchedPatients([]);
-    setSelectedMatchedPatient(null);
     setShowConfirmation(false);
     setTranscription("");
   };
@@ -350,14 +334,25 @@ export default function DietsPage() {
     setTranscription("");
     setError(undefined);
     setPendingTranscription(null);
-    setMatchedPatients([]);
-    setSelectedMatchedPatient(null);
     setShowConfirmation(false);
     setGeneratedDietMd(null);
+    setDietVersion(null);
     setSavedConsultationId(null);
     setSavedPatientId(null);
     setDietSavedUrl(null);
     setDietSaveError(null);
+  };
+
+  // Otra consulta puede ser de otro paciente: la elección se vuelve a pedir.
+  const handleNewConsultation = () => {
+    onRetryRecording();
+    setPatientMode(null);
+    setSelectedPatientId(null);
+  };
+
+  const choosePatientMode = (mode: PatientMode) => {
+    setPatientMode(mode);
+    if (mode === "new") setSelectedPatientId(null);
   };
 
   return (
@@ -380,14 +375,66 @@ export default function DietsPage() {
             <CardHeader>
               <CardTitle>Grabación de Audio</CardTitle>
               <CardDescription>
-                Graba la consulta del paciente. El sistema buscará
-                automáticamente coincidencias con pacientes existentes.
+                Indica primero si el paciente es nuevo o ya existe. Después,
+                graba la consulta.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div
+                  role="radiogroup"
+                  aria-label="Tipo de paciente"
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <Button
+                    role="radio"
+                    aria-checked={patientMode === "new"}
+                    variant={patientMode === "new" ? "default" : "outline"}
+                    disabled={isPatientChoiceLocked}
+                    onClick={() => choosePatientMode("new")}
+                    className="gap-2"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Paciente nuevo
+                  </Button>
+                  <Button
+                    role="radio"
+                    aria-checked={patientMode === "existing"}
+                    variant={patientMode === "existing" ? "default" : "outline"}
+                    disabled={isPatientChoiceLocked}
+                    onClick={() => choosePatientMode("existing")}
+                    className="gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Paciente existente
+                  </Button>
+                </div>
+
+                {patientMode === "existing" && !isPatientChoiceLocked && (
+                  <PatientPicker
+                    patients={patients}
+                    selectedId={selectedPatientId}
+                    onSelect={setSelectedPatientId}
+                  />
+                )}
+
+                {patientMode === "existing" && !selectedPatient && (
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    {CHOOSE_PATIENT_TO_RECORD_MESSAGE}
+                  </p>
+                )}
+                {patientMode === null && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Elige &quot;Paciente nuevo&quot; o &quot;Paciente
+                    existente&quot; para empezar a grabar
+                  </p>
+                )}
+              </div>
+
               <AudioRecorder
                 onRecordingComplete={handleRecordingComplete}
                 onRetryRecording={onRetryRecording}
+                disabled={!isPatientChosen}
               />
 
               <TranscriptionDisplay
@@ -433,7 +480,7 @@ export default function DietsPage() {
               </CardTitle>
               <CardDescription>
                 {savedConsultationId
-                  ? `La dieta de ${generatedPatientName} ha sido guardada y está lista para descargar.`
+                  ? `La dieta de ${generatedPatientName}${dietVersion != null ? ` (versión ${dietVersion})` : ""} ha sido guardada y está lista para descargar.`
                   : generationInterrupted
                     ? "La generación se interrumpió antes de terminar. El texto de abajo está incompleto y no se ha guardado."
                     : `Escribiendo la dieta de ${generatedPatientName}. Puedes ir leyéndola.`}
@@ -498,7 +545,7 @@ export default function DietsPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={onRetryRecording}
+                onClick={handleNewConsultation}
                 className="flex-1 gap-2"
               >
                 <FileText className="h-4 w-4" />
@@ -514,84 +561,35 @@ export default function DietsPage() {
             <Card className="border-2 border-blue-500 dark:border-blue-400">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  {matchedPatients.length > 0 ? (
+                  {patientMode === "existing" ? (
                     <>
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      Paciente Encontrado
+                      Revisión de {selectedPatient?.name_surnames}
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                      Paciente Nuevo
+                      <UserPlus className="h-5 w-5 text-blue-600" />
+                      Paciente nuevo
                     </>
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {matchedPatients.length > 0
-                    ? "Se encontraron coincidencias con pacientes existentes"
-                    : "No se encontraron coincidencias. Se creará un nuevo paciente."}
+                  {patientMode === "existing"
+                    ? "Se usará su ficha, sus consultas recientes y su última dieta como contexto."
+                    : "Se creará un paciente nuevo con los datos dictados en el audio."}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {matchedPatients.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">
-                      Pacientes coincidentes:
-                    </p>
-                    {matchedPatients.map((patient) => (
-                      <div
-                        key={patient.id}
-                        onClick={() => setSelectedMatchedPatient(patient)}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          selectedMatchedPatient?.id === patient.id
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-                            : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-semibold">
-                              {patient.name_surnames}
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {patient.mail}
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {patient.phone}
-                            </p>
-                          </div>
-                          {selectedMatchedPatient?.id === patient.id && (
-                            <Badge variant="default">Seleccionado</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {matchedPatients.length === 0 && (
-                  <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-                    <p className="text-sm text-orange-800 dark:text-orange-200">
-                      Se creará un nuevo paciente con la información extraída de
-                      la transcripción.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
               <CardFooter className="flex gap-3">
                 <Button
                   onClick={handleConfirmAndProcess}
                   className="flex-1"
-                  disabled={
-                    (matchedPatients.length > 1 && !selectedMatchedPatient) ||
-                    isProcessing
-                  }
+                  disabled={!isPatientChosen || isProcessing}
                 >
                   {isProcessing
                     ? "Generando dieta..."
-                    : matchedPatients.length > 0
-                      ? "Confirmar y Generar Dieta"
-                      : "Crear Paciente y Generar Dieta"}
+                    : patientMode === "existing"
+                      ? "Generar dieta"
+                      : "Crear paciente y generar dieta"}
                 </Button>
                 <Button
                   onClick={handleCancelProcess}
@@ -605,7 +603,7 @@ export default function DietsPage() {
           )}
 
           {/* Patient Info Table */}
-          {selectedMatchedPatient && (
+          {selectedPatient && (
             <Card>
               <CardHeader>
                 <CardTitle>Información del Paciente</CardTitle>

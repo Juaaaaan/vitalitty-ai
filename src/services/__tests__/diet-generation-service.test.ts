@@ -12,14 +12,27 @@ import {
   STATIC_PROMPT_BLOCK,
   type DietGenerationInput,
 } from "@/services/diet-generation-service";
+import type { PatientMemory } from "@/models/patient-context/patient-memory.models";
 
-const PATIENT = {
+const PERSONAL = {
   name_surnames: "Laura Martín",
   age: 34,
   gender: "F",
   height: 165,
   weight: 62,
 };
+
+function memoryWith(overrides: Partial<PatientMemory> = {}): PatientMemory {
+  return {
+    personal: PERSONAL,
+    clinical: {},
+    summaries: [],
+    lastDietMd: null,
+    ...overrides,
+  };
+}
+
+const MEMORY = memoryWith();
 
 function systemText(input: DietGenerationInput): string {
   const system = buildDietGenerationRequest(input).system;
@@ -36,8 +49,7 @@ describe("buildDietGenerationRequest", () => {
   it("no mete datos del paciente ni de la consulta en el bloque estático", () => {
     const system = systemText({
       transcription: "sube la proteína a dos coma dos gramos por kilo",
-      patient: PATIENT,
-      previousDietMd: "# Dieta anterior\n\nCena: merluza",
+      memory: memoryWith({ lastDietMd: "# Dieta anterior\n\nCena: merluza" }),
     });
 
     expect(system).not.toContain("Laura Martín");
@@ -46,11 +58,14 @@ describe("buildDietGenerationRequest", () => {
   });
 
   it("el bloque estático es idéntico entre pacientes y transcripciones distintas", () => {
-    const a = systemText({ transcription: "consulta A", patient: PATIENT });
+    const a = systemText({ transcription: "consulta A", memory: MEMORY });
     const b = systemText({
       transcription: "consulta B totalmente distinta",
-      patient: { ...PATIENT, name_surnames: "Rubén Pérez", weight: 88 },
-      previousDietMd: "# Otra dieta",
+      memory: memoryWith({
+        personal: { ...PERSONAL, name_surnames: "Rubén Pérez", weight: 88 },
+        clinical: { alergias_intolerancias: ["lactosa"] },
+        lastDietMd: "# Otra dieta",
+      }),
     });
 
     expect(a).toBe(b);
@@ -60,7 +75,7 @@ describe("buildDietGenerationRequest", () => {
   it("marca el bloque estático para caché y deja lo variable fuera", () => {
     const request = buildDietGenerationRequest({
       transcription: "consulta",
-      patient: PATIENT,
+      memory: MEMORY,
     });
 
     expect(request.system).toEqual([
@@ -84,8 +99,7 @@ describe("buildDietGenerationRequest", () => {
   it("incluye la dieta anterior y las instrucciones de edición en revisión", () => {
     const user = userText({
       transcription: "subimos proteína",
-      patient: PATIENT,
-      previousDietMd: "# Dieta anterior\n\nCENA: merluza",
+      memory: memoryWith({ lastDietMd: "# Dieta anterior\n\nCENA: merluza" }),
     });
 
     expect(user).toContain("MODO REVISIÓN");
@@ -95,7 +109,7 @@ describe("buildDietGenerationRequest", () => {
   it("no incluye bloque de dieta anterior cuando el paciente no tiene", () => {
     const user = userText({
       transcription: "primera consulta",
-      patient: PATIENT,
+      memory: MEMORY,
     });
 
     expect(user).not.toContain("MODO REVISIÓN");
@@ -103,12 +117,69 @@ describe("buildDietGenerationRequest", () => {
     expect(user).toContain("TRANSCRIPCIÓN DE LA CONSULTA");
   });
 
-  it("pone la transcripción al final, después del contexto del paciente", () => {
-    const user = userText({ transcription: "consulta", patient: PATIENT });
+  it("ordena memoria → modo revisión + dieta anterior → transcripción", () => {
+    const user = userText({
+      transcription: "consulta",
+      memory: memoryWith({ lastDietMd: "# Dieta v1" }),
+    });
 
-    expect(user.indexOf("CONTEXTO DEL PACIENTE")).toBeLessThan(
-      user.indexOf("TRANSCRIPCIÓN DE LA CONSULTA"),
-    );
+    const memory = user.indexOf("MEMORIA DEL PACIENTE");
+    const revision = user.indexOf("MODO REVISIÓN");
+    const transcription = user.indexOf("TRANSCRIPCIÓN DE LA CONSULTA");
+    expect(memory).toBeGreaterThanOrEqual(0);
+    expect(memory).toBeLessThan(revision);
+    expect(revision).toBeLessThan(transcription);
+  });
+
+  it("paciente nuevo: solo la transcripción en messages", () => {
+    const user = userText({ transcription: "primera consulta", memory: null });
+
+    expect(user).toBe("TRANSCRIPCIÓN DE LA CONSULTA\n\nprimera consulta");
+  });
+
+  it("pinta la ficha clínica y los resúmenes de la memoria", () => {
+    const user = userText({
+      transcription: "consulta",
+      memory: memoryWith({
+        clinical: {
+          alergias_intolerancias: ["lactosa", "frutos secos"],
+          objetivo_calorias: 1800,
+        },
+        summaries: [
+          { version: 2, date: "2026-09-10", summary: "Sube la proteína." },
+        ],
+      }),
+    });
+
+    expect(user).toContain("- Nombre: Laura Martín");
+    expect(user).toContain("- Alergias e intolerancias: lactosa, frutos secos");
+    expect(user).toContain("- Objetivo calórico (kcal): 1800");
+    expect(user).toContain("- Dieta v2 (2026-09-10): Sube la proteína.");
+  });
+
+  it("el render de la memoria es determinista", () => {
+    const input = {
+      transcription: "consulta",
+      memory: memoryWith({
+        clinical: { medicacion: "Finasteride 1mg/día", patologias: ["SII"] },
+      }),
+    };
+
+    expect(userText(input)).toBe(userText(structuredClone(input)));
+  });
+
+  it("usa un único breakpoint de caché", () => {
+    const request = buildDietGenerationRequest({
+      transcription: "consulta",
+      memory: memoryWith({ lastDietMd: "# Dieta v1" }),
+    });
+
+    const breakpoints = JSON.stringify(request).match(/cache_control/g) ?? [];
+    expect(breakpoints).toHaveLength(1);
+  });
+
+  it("el bloque estático explica cómo usar la memoria del paciente", () => {
+    expect(STATIC_PROMPT_BLOCK).toContain("## MEMORIA DEL PACIENTE");
   });
 });
 

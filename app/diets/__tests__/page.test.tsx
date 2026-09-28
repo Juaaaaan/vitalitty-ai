@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 const PATIENT = {
@@ -21,14 +21,29 @@ vi.mock("../../../lib/supabase/client", () => ({
 vi.mock("@/components/audio/audio-recorder", () => ({
   AudioRecorder: ({
     onRecordingComplete,
+    disabled,
   }: {
     onRecordingComplete: (blob: Blob) => void;
+    disabled?: boolean;
   }) => (
-    <button onClick={() => onRecordingComplete(new Blob(["audio"]))}>
+    <button
+      disabled={disabled}
+      onClick={() => onRecordingComplete(new Blob(["audio"]))}
+    >
       fake-record
     </button>
   ),
 }));
+
+beforeAll(() => {
+  // El selector de pacientes (cmdk + Radix) espera APIs que jsdom no trae.
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  Element.prototype.scrollIntoView ??= vi.fn();
+});
 
 import DietsPage from "../page";
 
@@ -42,6 +57,19 @@ function ndjsonStream(events: unknown[]) {
       controller.close();
     },
   });
+}
+
+function processConsultationBody() {
+  const call = vi
+    .mocked(fetch)
+    .mock.calls.find(([url]) => url === "/api/process-consultation");
+  return JSON.parse((call?.[1] as RequestInit).body as string);
+}
+
+async function waitForPatients() {
+  const { supabase } = await import("../../../lib/supabase/client");
+  await waitFor(() => expect(supabase.from).toHaveBeenCalled());
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("Diets page", () => {
@@ -67,6 +95,7 @@ describe("Diets page", () => {
                 consultationId: "consultation-1",
                 patientId: "patient-1",
                 patientName: "Laura Martín",
+                dietVersion: 2,
               },
             ]),
           );
@@ -76,23 +105,62 @@ describe("Diets page", () => {
     );
   });
 
-  it("genera la dieta en streaming con un paciente existente seleccionado sin bloquear la UI", async () => {
+  it("no deja grabar hasta elegir paciente nuevo o existente", async () => {
     render(<DietsPage />);
+    await waitForPatients();
 
-    // Esperar a que carguen los pacientes antes de grabar, o no habrá coincidencia.
-    const { supabase } = await import("../../../lib/supabase/client");
-    await waitFor(() => expect(supabase.from).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByText("fake-record")).toHaveProperty("disabled", true);
 
+    fireEvent.click(screen.getByRole("radio", { name: /Paciente existente/ }));
+    expect(screen.getByText("fake-record")).toHaveProperty("disabled", true);
+    expect(
+      screen.getByText("Elige un paciente de la lista para empezar a grabar"),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Paciente nuevo/ }));
+    expect(screen.getByText("fake-record")).toHaveProperty("disabled", false);
+  });
+
+  it("paciente existente: envía su id y genera en streaming sin bloquear la UI", async () => {
+    render(<DietsPage />);
+    await waitForPatients();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Paciente existente/ }));
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByText(/laura@example.com/));
+
+    // Con el paciente elegido, su tabla de datos queda montada durante el stream.
+    expect(screen.getByText("Información del Paciente")).toBeDefined();
     fireEvent.click(screen.getByText("fake-record"));
 
-    // Una sola coincidencia: queda seleccionada y su tabla de datos, montada.
-    const confirm = await screen.findByText("Confirmar y Generar Dieta");
-    expect(screen.getByText("Información del Paciente")).toBeDefined();
-
-    fireEvent.click(confirm);
+    fireEvent.click(await screen.findByText("Generar dieta"));
 
     await screen.findByText("Dieta generada", {}, { timeout: 3000 });
     expect(screen.getByText(/Subir la proteína/)).toBeDefined();
+    expect(screen.getByText(/versión 2/)).toBeDefined();
+    expect(processConsultationBody()).toEqual({
+      transcription: "Revisión de Laura, sube la proteína.",
+      patientMode: "existing",
+      patientId: "patient-1",
+    });
+  });
+
+  it("paciente nuevo: no asocia a nadie aunque el audio nombre a un paciente existente", async () => {
+    render(<DietsPage />);
+    await waitForPatients();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Paciente nuevo/ }));
+    fireEvent.click(screen.getByText("fake-record"));
+
+    // La transcripción dice "Laura", que existe: no se sugiere ni se selecciona.
+    fireEvent.click(await screen.findByText("Crear paciente y generar dieta"));
+    expect(screen.queryByText("Información del Paciente")).toBeNull();
+
+    await screen.findByText("Dieta generada", {}, { timeout: 3000 });
+    expect(processConsultationBody()).toEqual({
+      transcription: "Revisión de Laura, sube la proteína.",
+      patientMode: "new",
+      patientId: null,
+    });
   });
 });

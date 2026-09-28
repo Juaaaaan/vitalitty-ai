@@ -71,6 +71,9 @@ Known deltas and open items, so nobody documents them as done:
 - **Time to first visible token not measured in the browser.** Server-side it is ~4–5 s to the first thinking summary. Acceptance check 8.2 of `2026-09-28-single-pass-diet-generation` was archived open, pending a manual measurement.
 - **Generation runs close to `maxDuration`.** A full diet takes 44–53 s against `maxDuration = 60`. Confirm the deployment plan's cap before relying on it.
 - **Only one example diet.** The static prompt block holds one real diet; adding a second is adding an element to `DIET_EXAMPLES`.
+- **Extraction was failing on every call until `add-patient-persistent-context`.** The schema was rejected by the API with a `400` (nullable `enum`, and 26 union-typed params over the limit of 16), so no structured fields were stored. Only numbers are nullable now; `""` / `[]` mean "not mentioned" and are normalized to `null`. Keep the schema under 16 unions — a test enforces it.
+- **Patient memory can't forget.** The card takes the latest non-empty value of each clinical field, so a restriction that disappears is only overridden by what the new transcription says (the static prompt tells the model the transcription wins). There is no editable patient card yet.
+- **Consultations saved before `add-patient-persistent-context` have no summary.** They are skipped in the memory; only their full diet is used when it is the latest one.
 - **Audio is not stored.** It is transcribed and discarded; there is no audio bucket and no audio column. Only `audio_transcription` is persisted.
 
 **Closed:** diet generation and extraction reached the target in change `2026-09-28-single-pass-diet-generation`: `src/services/diet-generation-service.ts` (single streamed pass, cached static block of instructions + example diets) and `src/services/consultation-extraction-service.ts` (structured output, in parallel, never blocks the document). `extraction-service.ts`, its template and `app/actions/` are gone; `upload-diet` became `POST /api/upload-diet`. Contracts in `openspec/specs/diet-generation/spec.md` and `openspec/specs/consultation-extraction/spec.md`.
@@ -84,12 +87,12 @@ Known deltas and open items, so nobody documents them as done:
 - `/dashboard` → Patient list with TanStack React Table CRUD
 - `/dashboard/calendar` → Monthly appointments calendar (async server component)
 - `/dashboard/patient/[id]` → Dynamic patient detail
-- `/diets` → Audio recording → transcription → diet generation → save consultation
+- `/diets` → Choose new/existing patient → audio recording → transcription → diet generation → save consultation. Recording stays disabled until the patient choice is complete; the patient is never guessed from the transcription
 
 ### Route handlers
 
 - `POST /api/transcribe` — multipart `audio` file → `{ text }`. Thin layer over `transcribeAudio()`: model, language and the 10 MB input cap live in the service, not here. `413` when the audio exceeds the cap, `400` with no audio, `500` on provider failure — every error body carries `error`, because the client reads it before looking at the status.
-- `POST /api/process-consultation` — `{ transcription, existingPatientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, and `done` carries `consultationId`. `maxDuration = 60`.
+- `POST /api/process-consultation` — `{ transcription, patientMode: "new" | "existing", patientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. `400` on missing/invalid mode or `existing` without id; `404` when the patient isn't the user's — both before any model call. For `existing` it loads the patient memory (`src/services/patient-context-service.ts`: card with the latest known clinical values + summaries of the last 3 diets + last full diet) and injects it after the cached static block, before the transcription; `new` gets no memory and always creates a patient row (no email matching). Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, with the extraction's `consultation_summary`, and `done` carries `consultationId` and `dietVersion` (assigned by a DB trigger, 1 for a new patient, N+1 otherwise). `maxDuration = 60`.
 - `POST /api/upload-diet` — `{ consultationId, patientId, dietMd }` → `{ success, url?, error? }`. Uploads to the private `diets` bucket, stores the file **path** in `patient_consultations.documento_url` (the column name is legacy; it holds a path, not a URL) and returns a 1 h signed URL. `404` when the consultation isn't the user's.
 
 ### Server vs Client split
@@ -122,6 +125,7 @@ src/
     ui/             # shadcn/ui primitives (do not edit manually — use CLI)
     layout/         # App shell: sidebar, login form, theme toggle
     audio/          # Audio recorder + transcription display
+    patients/       # Patient picker (keyed by id, shows contact to tell namesakes apart)
     calendar/       # Calendar client component
   services/         # Business logic: transcription, diet generation, extraction, calendar
   models/           # TypeScript types (audio, calendar, dashboard, extraction)
