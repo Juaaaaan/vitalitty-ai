@@ -1,36 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import openai from "../../../lib/ai/openai";
+import { transcribeAudio } from "@/services/trasncription-service";
 
 export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-    const audioFile = formData.get("audio") as File | null;
+  const formData = await request.formData();
+  const audioFile = formData.get("audio") as File | null;
 
-    if (!audioFile) {
-      return NextResponse.json(
-        { error: "No audio file provided" },
-        { status: 400 },
-      );
-    }
-
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: "whisper-1",
-      language: "es",
-      response_format: "json",
-      temperature: 0,
-    });
-
-    return NextResponse.json({ text: transcription.text });
-  } catch (error) {
-    console.error("Transcription error:", error);
+  if (!audioFile) {
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to transcribe audio",
-        text: "",
-      },
-      { status: 500 },
+      { error: "No audio file provided", text: "" },
+      { status: 400 },
     );
   }
+
+  const result = await transcribeAudio(audioFile);
+
+  if (result.error) {
+    // El cliente lee `error` del cuerpo antes de mirar el status, así que el
+    // cuerpo lo lleva siempre.
+    return NextResponse.json(
+      { error: result.error, text: "" },
+      { status: result.errorCode === "FILE_TOO_LARGE" ? 413 : 500 },
+    );
+  }
+
+  return NextResponse.json({ text: result.text });
 }
