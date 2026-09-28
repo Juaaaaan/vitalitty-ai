@@ -1,0 +1,82 @@
+schema: spec-driven
+
+# Contexto de proyecto — se muestra a la IA al crear cualquier artefacto.
+# Fuente de verdad: openspec/project.md. CLAUDE.md lo expande, no lo contradice.
+context: |
+  Vitalitty — app de nutrición. El nutricionista graba la consulta en audio y
+  la app produce la dieta del paciente y su histórico.
+
+  Stack: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS v4 +
+  shadcn/ui (Radix) + Supabase (Postgres + Storage) + Vercel.
+
+  Modelos objetivo:
+  - Transcripción: OpenAI gpt-4o-transcribe
+  - Generación de dieta: Claude Opus
+  - Extracción de campos para BD: Claude Haiku
+
+  REGLAS DURAS — un artefacto que las incumpla está mal, no es una opción de diseño:
+
+  1. Los client components llaman a route handlers (/api/*) con fetch. NUNCA a
+     Server Actions. No proponer Server Actions nuevas.
+  2. Vercel serverless: prohibido readFileSync o cualquier dependencia de
+     filesystem en runtime. Plantillas de prompt y dietas de ejemplo van como
+     constantes o módulos TypeScript en el repo.
+  3. React 19 + App Router: no combinar varios setState en el mismo handler sin
+     useTransition. Congela la UI sin error ni traza.
+  4. Nunca editar a mano src/components/ui/ — son ficheros generados por shadcn/ui.
+
+  ARQUITECTURA OBJETIVO — documento-primero:
+
+  La dieta se genera en UNA SOLA PASADA del modelo con dietas de ejemplo reales en
+  contexto, y se guarda como markdown. Ese markdown es la fuente de verdad; los
+  campos estructurados son una proyección ligera para consultar, comparar y graficar.
+  NO es un pipeline de extracción a JSON + rellenar plantilla: no proponer uno.
+
+  El núcleo debe comportarse como un "Proyecto" de ChatGPT/Claude. Lo que la app
+  aporta por encima es lo que un Proyecto no puede: BD por paciente, histórico,
+  comparación de dietas entre citas, gráficas.
+
+  Orden del prompt de generación, para prompt caching:
+    [estático: instrucciones + dietas de ejemplo]  <- bloque cacheado, no varía
+    [contexto de paciente]
+    [transcripción]
+  El bloque estático va primero y es el único cacheable. Todo lo específico del
+  paciente va después, o la caché no sirve de nada.
+
+  ESTADO ACTUAL vs OBJETIVO (no documentar como hecho lo que no lo está):
+  - extraction-service.ts sigue en gpt-4o y sigue rellenando una plantilla con
+    {{placeholders}}. Su migración es un cambio pendiente.
+  - La transcripción sigue en whisper-1. Lo cubre el cambio switch-transcription-to-gpt4o.
+  - @anthropic-ai/sdk todavía no es dependencia. Solo está instalado openai.
+  - app/actions/ conserva Server Actions (save-consultation, upload-diet). Son
+    anteriores a la regla 1 y se migran dentro del cambio de generación, no de forma
+    oportunista en cualquier otro cambio.
+
+  Idioma: los artefactos de OpenSpec se escriben en español. Código, identificadores
+  y mensajes de commit, en inglés.
+
+# Reglas por artefacto.
+rules:
+  proposal:
+    - "Indica siempre qué regla dura o qué parte de la arquitectura objetivo motiva o restringe el cambio, si alguna aplica."
+    - "Si el cambio roza app/actions/, di explícitamente si migra esas Server Actions o las deja intactas. No las migres de forma oportunista."
+  specs:
+    - "Especifica comportamiento observable, no la elección de modelo ni el proveedor. El modelo concreto es una decisión de diseño, no un requisito."
+    - "Los mensajes de error que ve el usuario son en español y deben decir qué hacer."
+  design:
+    - "Toda decisión lleva su alternativa descartada y el motivo del descarte."
+    - "Si la decisión toca prompts, indica dónde cae el corte de la caché y por qué el bloque estático va primero."
+    - "Señala explícitamente cualquier restricción de Vercel serverless que condicione el enfoque (filesystem, tamaño de body, tiempo de ejecución)."
+  tasks:
+    - "Cada tarea indica cómo se verifica, con un test, un comando, un comportamiento observable o un artefacto entregado."
+    - "Las tareas que cambian comportamiento del cliente se verifican en el navegador, no solo con tests unitarios."
+
+# Guía por operación.
+operations:
+  apply:
+    guidance:
+      - "Ejecuta npm run lint y npm run test antes de dar por cerrado un grupo de tareas."
+      - "No amplíes el alcance a ficheros que el cambio no declara afectados."
+  archive:
+    guidance:
+      - "Antes de archivar, comprueba que CLAUDE.md y openspec/project.md siguen coincidiendo con el estado real tras el cambio, y actualiza la sección Current state vs target si algún delta se ha cerrado."
