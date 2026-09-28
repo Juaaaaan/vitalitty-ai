@@ -80,6 +80,8 @@ Known deltas and open items, so nobody documents them as done:
 
 **Closed:** persistent patient memory in change `2026-09-28-add-patient-persistent-context`: explicit new/existing choice before recording, memory (card + last 3 summaries + last diet) injected between the cached static block and the transcription, per-patient `diet_version` (DB trigger) and `consultation_summary`. The same change fixed the extraction schema, which the API had been rejecting with a `400` on every call (nullable `enum`, 26 union-typed params over the limit of 16): only numbers are nullable now, `""` / `[]` mean "not mentioned" and are normalized to `null`, and a test keeps it under 16 unions. Contracts in `openspec/specs/patient-context/spec.md` and `openspec/specs/consultation-patient-selection/spec.md`.
 
+**Closed:** weight history in change `2026-09-29-add-weight-history`: each consultation stores the weight dictated in it (`patient_consultations.weight`, `null` if none), `patients.weight` stays as the latest known value, and the patient page charts target kcal (bars) and weight (line) on separate axes. Pre-existing consultations were backfilled once from their transcriptions with `scripts/backfill-consultation-weight.ts`. Contracts in `openspec/specs/patient-evolution/spec.md` and `openspec/specs/consultation-extraction/spec.md`.
+
 **Closed:** transcription reached the target in change `2026-09-28-switch-transcription-to-gpt4o`. `gpt-4o-transcribe`, `/api/transcribe` delegating to `transcribeAudio()`, 10 MB input cap → `413`. Its behaviour contract lives in `openspec/specs/audio-transcription/spec.md`.
 
 ### Routing & Pages
