@@ -88,13 +88,13 @@ Known deltas and open items, so nobody documents them as done:
 - `/login` → Supabase email/password auth
 - `/dashboard` → Patient list with TanStack React Table CRUD
 - `/dashboard/calendar` → Monthly appointments calendar (async server component)
-- `/dashboard/patient/[id]` → Dynamic patient detail
+- `/dashboard/patient/[id]` → Patient detail: data, an evolution chart (target kcal as bars + weight as a line, one axis each, one point per consultation) and the consultation history. Weight is stored per consultation in `patient_consultations.weight`; `patients.weight` only holds the latest known value
 - `/diets` → Choose new/existing patient → audio recording → transcription → diet generation → save consultation. Recording stays disabled until the patient choice is complete; the patient is never guessed from the transcription
 
 ### Route handlers
 
 - `POST /api/transcribe` — multipart `audio` file → `{ text }`. Thin layer over `transcribeAudio()`: model, language and the 10 MB input cap live in the service, not here. `413` when the audio exceeds the cap, `400` with no audio, `500` on provider failure — every error body carries `error`, because the client reads it before looking at the status.
-- `POST /api/process-consultation` — `{ transcription, patientMode: "new" | "existing", patientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. `400` on missing/invalid mode or `existing` without id; `404` when the patient isn't the user's — both before any model call. For `existing` it loads the patient memory (`src/services/patient-context-service.ts`: card with the latest known clinical values + summaries of the last 3 diets + last full diet) and injects it after the cached static block, before the transcription; `new` gets no memory and always creates a patient row (no email matching). Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, with the extraction's `consultation_summary`, and `done` carries `consultationId` and `dietVersion` (assigned by a DB trigger, 1 for a new patient, N+1 otherwise). `maxDuration = 60`.
+- `POST /api/process-consultation` — `{ transcription, patientMode: "new" | "existing", patientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. `400` on missing/invalid mode or `existing` without id; `404` when the patient isn't the user's — both before any model call. For `existing` it loads the patient memory (`src/services/patient-context-service.ts`: card with the latest known clinical values + summaries of the last 3 diets + last full diet) and injects it after the cached static block, before the transcription; `new` gets no memory and always creates a patient row (no email matching). Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, with the extraction's `consultation_summary` and the weight dictated in it (`null` if none — never copied from the patient), and `done` carries `consultationId` and `dietVersion` (assigned by a DB trigger, 1 for a new patient, N+1 otherwise). `maxDuration = 60`.
 - `POST /api/upload-diet` — `{ consultationId, patientId, dietMd }` → `{ success, url?, error? }`. Uploads to the private `diets` bucket, stores the file **path** in `patient_consultations.documento_url` (the column name is legacy; it holds a path, not a URL) and returns a 1 h signed URL. `404` when the consultation isn't the user's.
 
 ### Server vs Client split
@@ -135,6 +135,7 @@ src/
   hooks/            # use-mobile.ts
   lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 middleware.ts       # Supabase SSR auth
+scripts/            # One-off local scripts (e.g. weight backfill); never imported from app/ or src/, never deployed
 supabase/migrations/ # SQL migrations (Storage buckets and policies)
 openspec/           # Spec-driven change workflow (project.md, config.yaml, changes/)
 ```

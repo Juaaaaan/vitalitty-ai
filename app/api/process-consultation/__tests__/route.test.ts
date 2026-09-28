@@ -160,6 +160,69 @@ describe("POST /api/process-consultation", () => {
     );
   });
 
+  it("guarda en la consulta el peso dictado, además de actualizar el paciente", async () => {
+    extractConsultationData.mockResolvedValue({
+      patient: { name_surnames: "Laura Martín", weight: 62 },
+      consultation: {},
+    });
+    const inserts: Record<string, unknown>[] = [];
+    const updates: Record<string, unknown>[] = [];
+    supabase.from.mockImplementation((table: string) =>
+      stubTable({
+        insert: (row: Record<string, unknown>) => {
+          if (table === "patient_consultations") inserts.push(row);
+          return stubTable();
+        },
+        update: (row: Record<string, unknown>) => {
+          if (table === "patients") updates.push(row);
+          return stubTable();
+        },
+      }),
+    );
+
+    await readEvents(await POST(requestWith(EXISTING)));
+
+    expect(inserts[0]).toMatchObject({ weight: 62 });
+    expect(updates[0]).toMatchObject({ weight: 62 });
+  });
+
+  it("sin peso dictado: la consulta se guarda sin peso y el del paciente no se toca", async () => {
+    extractConsultationData.mockResolvedValue({
+      patient: { name_surnames: "Laura Martín", weight: null },
+      consultation: {},
+    });
+    const inserts: Record<string, unknown>[] = [];
+    const updates: Record<string, unknown>[] = [];
+    supabase.from.mockImplementation((table: string) =>
+      stubTable({
+        insert: (row: Record<string, unknown>) => {
+          if (table === "patient_consultations") inserts.push(row);
+          return stubTable();
+        },
+        update: (row: Record<string, unknown>) => {
+          if (table === "patients") updates.push(row);
+          return stubTable();
+        },
+      }),
+    );
+
+    await readEvents(await POST(requestWith(EXISTING)));
+
+    expect(inserts[0]).toMatchObject({ weight: null });
+    expect(updates[0]).not.toHaveProperty("weight");
+  });
+
+  it("extracción fallida: la consulta se guarda sin peso", async () => {
+    extractConsultationData.mockRejectedValue(new Error("haiku cayó"));
+    const insert = vi.fn(() => stubTable());
+    supabase.from.mockImplementation(() => stubTable({ insert }));
+
+    await readEvents(await POST(requestWith(EXISTING)));
+
+    const [row] = insert.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(row).toMatchObject({ weight: null });
+  });
+
   it("no escribe nada si la generación falla a mitad", async () => {
     const insert = vi.fn(() => stubTable());
     supabase.from.mockImplementation(() => stubTable({ insert }));
