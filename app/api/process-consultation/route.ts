@@ -1,133 +1,246 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
+import { streamDietGeneration } from "@/services/diet-generation-service";
 import {
-  extractPatientData,
-  generateDietMarkdown,
-} from "@/services/extraction-service";
+  extractConsultationData,
+  type ExtractionResult,
+} from "@/services/consultation-extraction-service";
+
+/**
+ * Tope de duración de la función. 60 s es el valor admitido en todos los planes
+ * de Vercel, así que es el suelo seguro. Una generación de varias páginas puede
+ * pasarse: medir cuánto tarda de verdad y subirlo si el plan lo permite.
+ */
+export const maxDuration = 60;
+
+type StreamEvent =
+  | { type: "thinking"; text: string }
+  | { type: "text"; text: string }
+  | { type: "error"; message: string }
+  | {
+      type: "done";
+      consultationId: string;
+      patientId: string;
+      patientName: string;
+    };
 
 export async function POST(request: NextRequest) {
-  try {
-    const { transcription, existingPatientId } = await request.json();
+  const { transcription, existingPatientId } = await request.json();
 
-    if (!transcription) {
-      return NextResponse.json(
-        { success: false, error: "Transcription is required" },
-        { status: 400 },
-      );
-    }
+  if (!transcription) {
+    return NextResponse.json(
+      { error: "Transcription is required" },
+      { status: 400 },
+    );
+  }
 
-    const supabase = await createClient();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    // 1. Extraer datos del paciente y generar dieta en paralelo —
-    //    son independientes entre sí, así que no tiene sentido hacerlos en serie.
-    const [{ patient, consultation }, dietMarkdown] = await Promise.all([
-      extractPatientData(transcription),
-      generateDietMarkdown(transcription),
-    ]);
+  if (!user) {
+    return NextResponse.json(
+      { error: "User not authenticated" },
+      { status: 401 },
+    );
+  }
 
-    // 2. Get current user (nutritionist)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  // Contexto del paciente y su última dieta, para generar en modo revisión.
+  let patientRow = null;
+  let previousDietMd: string | null = null;
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "User not authenticated" },
-        { status: 401 },
-      );
-    }
+  if (existingPatientId) {
+    const { data } = await supabase
+      .from("patients")
+      .select("id, name_surnames, age, gender, height, weight")
+      .eq("id", existingPatientId)
+      .single();
+    patientRow = data;
 
-    let patientId: string | null = existingPatientId || null;
+    const { data: lastConsultation } = await supabase
+      .from("patient_consultations")
+      .select("diet_md")
+      .eq("patient_id", existingPatientId)
+      .not("diet_md", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    previousDietMd = lastConsultation?.diet_md ?? null;
+  }
 
-    // 3. Handle Patient Logic
-    if (patientId) {
-      // Update existing patient with new data found in audio
+  // La extracción arranca ya y corre de fondo: el documento no la espera.
+  // Solo se recoge al cerrar el stream, justo antes de escribir en base de datos.
+  const extractionPromise: Promise<ExtractionResult | null> =
+    extractConsultationData(transcription).catch((error) => {
+      console.error("Extraction failed:", error);
+      return null;
+    });
+
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: StreamEvent) =>
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+
+      let dietMarkdown = "";
+
+      try {
+        for await (const event of streamDietGeneration({
+          transcription,
+          patient: patientRow,
+          previousDietMd,
+        })) {
+          if (event.type === "text") {
+            dietMarkdown += event.text;
+            send({ type: "text", text: event.text });
+          } else if (event.type === "thinking") {
+            send({ type: "thinking", text: event.text });
+          } else {
+            console.log("Diet generation usage:", {
+              cacheReadInputTokens: event.cacheReadInputTokens,
+              cacheCreationInputTokens: event.cacheCreationInputTokens,
+              inputTokens: event.inputTokens,
+              outputTokens: event.outputTokens,
+            });
+          }
+        }
+
+        const extraction = await extractionPromise;
+        const { consultationId, patientId, patientName } = await persist({
+          supabase,
+          userId: user.id,
+          transcription,
+          dietMarkdown,
+          extraction,
+          existingPatientId: existingPatientId ?? null,
+          fallbackName: patientRow?.name_surnames ?? "",
+        });
+
+        send({ type: "done", consultationId, patientId, patientName });
+      } catch (error) {
+        // La generación falló a mitad: no se escribe una consulta con dieta
+        // parcial. El texto ya emitido se queda en pantalla del lado del cliente.
+        console.error("Diet generation failed:", error);
+        send({
+          type: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "La generación de la dieta falló",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+    },
+  });
+}
+
+type PersistArgs = {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  transcription: string;
+  dietMarkdown: string;
+  extraction: ExtractionResult | null;
+  existingPatientId: string | null;
+  fallbackName: string;
+};
+
+/**
+ * Escribe paciente y consulta en una sola pasada, al cerrar el stream.
+ *
+ * Si la extracción falló, `extraction` es null: la consulta se guarda igual con
+ * el documento, que es la fuente de verdad, y sin los campos estructurados.
+ */
+async function persist({
+  supabase,
+  userId,
+  transcription,
+  dietMarkdown,
+  extraction,
+  existingPatientId,
+  fallbackName,
+}: PersistArgs) {
+  const patient = extraction?.patient ?? null;
+  const consultation = extraction?.consultation ?? {};
+
+  let patientId = existingPatientId;
+
+  if (patientId) {
+    if (patient) {
       const updates = Object.fromEntries(
-        Object.entries(patient).filter(([_, v]) => v != null),
+        Object.entries(patient).filter(([, value]) => value != null),
       );
-
       if (Object.keys(updates).length > 0) {
         await supabase
           .from("patients")
           .update({ ...updates, updated_at: new Date().toISOString() })
           .eq("id", patientId);
       }
-    } else {
-      // No explicit patient — try to match by email
-      if (patient.mail) {
-        const { data: existingPatients } = await supabase
+    }
+  } else {
+    if (patient?.mail) {
+      const { data: matches } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("mail", patient.mail)
+        .limit(1);
+
+      if (matches && matches.length > 0) {
+        patientId = matches[0].id;
+        await supabase
           .from("patients")
-          .select("id")
-          .eq("mail", patient.mail)
-          .limit(1);
-
-        if (existingPatients && existingPatients.length > 0) {
-          patientId = existingPatients[0].id;
-          await supabase
-            .from("patients")
-            .update({ ...patient, updated_at: new Date().toISOString() })
-            .eq("id", patientId);
-        }
-      }
-
-      // If still no patientId, create new patient
-      if (!patientId) {
-        const { data: newPatient, error } = await supabase
-          .from("patients")
-          .insert({ ...patient, created_by: user.id })
-          .select("id")
-          .single();
-
-        if (error) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Error creating patient: ${error.message}`,
-            },
-            { status: 500 },
-          );
-        }
-        patientId = newPatient.id;
+          .update({ ...patient, updated_at: new Date().toISOString() })
+          .eq("id", patientId);
       }
     }
 
-    // 4. Create Consultation Record — incluye el markdown generado
-    const { error: consultationError } = await supabase
-      .from("patient_consultations")
-      .insert({
-        ...consultation,
-        patient_id: patientId,
-        created_by: user.id,
-        audio_transcription: transcription,
-        diet_md: dietMarkdown, // <-- persistir en BD
-      });
+    if (!patientId) {
+      if (!patient) {
+        throw new Error(
+          "No hay paciente seleccionado y la extracción no devolvió datos para crearlo",
+        );
+      }
+      const { data: newPatient, error } = await supabase
+        .from("patients")
+        .insert({ ...patient, created_by: userId })
+        .select("id")
+        .single();
 
-    if (consultationError) {
-      console.error("Consultation insert error:", consultationError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Error creating consultation: ${consultationError.message}`,
-        },
-        { status: 500 },
-      );
+      if (error) throw new Error(`Error creating patient: ${error.message}`);
+      patientId = newPatient.id;
     }
+  }
 
-    // 5. Devolver el markdown al cliente para que pueda mostrarlo y descargarlo
-    return NextResponse.json({
-      success: true,
-      patientId,
-      patientName: patient.name_surnames,
-      dietMarkdown, // <-- el page.tsx lo usa para el preview y la descarga
-    });
-  } catch (error) {
-    console.error("Error processing consultation:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
+  const { data: record, error: consultationError } = await supabase
+    .from("patient_consultations")
+    .insert({
+      ...consultation,
+      patient_id: patientId,
+      created_by: userId,
+      audio_transcription: transcription,
+      diet_md: dietMarkdown,
+    })
+    .select("id")
+    .single();
+
+  if (consultationError) {
+    throw new Error(
+      `Error creating consultation: ${consultationError.message}`,
     );
   }
+
+  return {
+    consultationId: record.id as string,
+    patientId: patientId as string,
+    patientName: patient?.name_surnames || fallbackName,
+  };
 }

@@ -21,8 +21,10 @@ context: |
   2. Vercel serverless: prohibido readFileSync o cualquier dependencia de
      filesystem en runtime. Plantillas de prompt y dietas de ejemplo van como
      constantes o módulos TypeScript en el repo.
-  3. React 19 + App Router: no combinar varios setState en el mismo handler sin
-     useTransition. Congela la UI sin error ni traza.
+  3. data y columns de useReactTable siempre con referencia estable (estado o
+     useMemo). Un array nuevo en cada render provoca un bucle infinito de renders
+     que congela la pestaña sin error ni traza. Fue la causa real del bloqueo de
+     /diets, atribuido durante un tiempo a combinar varios setState sin useTransition.
   4. Nunca editar a mano src/components/ui/ — son ficheros generados por shadcn/ui.
 
   ARQUITECTURA OBJETIVO — documento-primero:
@@ -44,13 +46,14 @@ context: |
   paciente va después, o la caché no sirve de nada.
 
   ESTADO ACTUAL vs OBJETIVO (no documentar como hecho lo que no lo está):
-  - extraction-service.ts sigue en gpt-4o y sigue rellenando una plantilla con
-    {{placeholders}}. Su migración es un cambio pendiente.
-  - La transcripción sigue en whisper-1. Lo cubre el cambio switch-transcription-to-gpt4o.
-  - @anthropic-ai/sdk todavía no es dependencia. Solo está instalado openai.
-  - app/actions/ conserva Server Actions (save-consultation, upload-diet). Son
-    anteriores a la regla 1 y se migran dentro del cambio de generación, no de forma
-    oportunista en cualquier otro cambio.
+  - Transcripción: cerrada (gpt-4o-transcribe, cambio archivado).
+  - Generación y extracción: cerradas (cambio 2026-09-28-single-pass-diet-generation).
+    Opus en streaming con bloque cacheado; Haiku en paralelo. Queda abierta la medición
+    en navegador del tiempo hasta el primer token (tarea 8.2 de ese cambio).
+  - app/actions/ ya no existe: save-consultation se retiró y upload-diet pasó a
+    POST /api/upload-diet. No crear Server Actions nuevas.
+  - El audio no se guarda: se transcribe y se descarta. Solo se persiste la
+    transcripción. Storage tiene un único bucket privado, diets.
 
   Idioma: los artefactos de OpenSpec se escriben en español. Código, identificadores
   y mensajes de commit, en inglés.
@@ -59,7 +62,7 @@ context: |
 rules:
   proposal:
     - "Indica siempre qué regla dura o qué parte de la arquitectura objetivo motiva o restringe el cambio, si alguna aplica."
-    - "Si el cambio roza app/actions/, di explícitamente si migra esas Server Actions o las deja intactas. No las migres de forma oportunista."
+    - "Si el cambio toca Storage, indica el bucket, si es privado y qué políticas lo protegen. Son datos de salud: nada de URLs públicas."
   specs:
     - "Especifica comportamiento observable, no la elección de modelo ni el proveedor. El modelo concreto es una decisión de diseño, no un requisito."
     - "Los mensajes de error que ve el usuario son en español y deben decir qué hacer."

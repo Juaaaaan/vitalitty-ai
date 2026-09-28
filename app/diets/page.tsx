@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AudioRecorder } from "@/components/audio/audio-recorder";
 import { TranscriptionDisplay } from "@/components/audio/transcription-display";
 import { Separator } from "@/components/ui/separator";
@@ -46,7 +46,6 @@ export default function DietsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>();
   const [patients, setPatients] = useState<Patient[]>([]);
-  // const [isPending, startTransition] = useTransition();
 
   // New state for the intelligent flow
   const [pendingTranscription, setPendingTranscription] = useState<
@@ -57,6 +56,9 @@ export default function DietsPage() {
     useState<Patient | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [generatedDietMd, setGeneratedDietMd] = useState<string | null>(null);
+  const [thinkingSummary, setThinkingSummary] = useState("");
+  const [generationInterrupted, setGenerationInterrupted] = useState(false);
+  const [, startTransition] = useTransition();
   const [generatedPatientName, setGeneratedPatientName] = useState<string>("");
 
   // Estado para subida de dieta
@@ -68,8 +70,17 @@ export default function DietsPage() {
   const [dietSavedUrl, setDietSavedUrl] = useState<string | null>(null);
   const [dietSaveError, setDietSaveError] = useState<string | null>(null);
 
+  // `data` tiene que ser una referencia estable. Un array nuevo en cada render
+  // hace que TanStack Table recalcule filas y resetee la paginación, lo que
+  // dispara otro render, y así en bucle: con la tabla montada, cualquier
+  // setState (p. ej. cada fragmento del stream) congela la pestaña entera.
+  const patientInfoData = useMemo(
+    () => (selectedMatchedPatient ? [selectedMatchedPatient] : []),
+    [selectedMatchedPatient],
+  );
+
   const patientInfoTable = useReactTable({
-    data: selectedMatchedPatient ? [selectedMatchedPatient] : [],
+    data: patientInfoData,
     columns: COLUMNS_PATIENTS,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -184,9 +195,22 @@ export default function DietsPage() {
       return;
     }
 
+    // Varios setState en el mismo handler: sin useTransition la UI se congela
+    // durante el stream, sin error ni traza.
+    startTransition(() => {
+      setGeneratedDietMd("");
+      setThinkingSummary("");
+      setGenerationInterrupted(false);
+      setGeneratedPatientName(
+        selectedMatchedPatient?.name_surnames ?? "Paciente",
+      );
+      setShowConfirmation(false);
+      setError(undefined);
+    });
+
+    let markdown = "";
+
     try {
-      console.log("Processing consultation...");
-      // Usamos fetch en lugar de Server Action para evitar que React bloquee la UI
       const response = await fetch("/api/process-consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,41 +220,73 @@ export default function DietsPage() {
         }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.error || `Server error: ${response.statusText}`,
         );
       }
 
-      const result = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      if (!result.success) {
-        setError(result.error || "Failed to process consultation");
-      } else {
-        console.log("✅ Consulta procesada exitosamente!", result.patientId);
+      // El servidor emite NDJSON: un evento por línea.
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        setGeneratedDietMd(result.dietMarkdown);
-        setGeneratedPatientName(
-          selectedMatchedPatient?.name_surnames ??
-            result.patientName ??
-            "Paciente",
-        );
-        // Guardar ids para la subida posterior
-        setSavedConsultationId(result.consultationId ?? null);
-        setSavedPatientId(result.patientId ?? null);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
-        setPendingTranscription(null);
-        setMatchedPatients([]);
-        setSelectedMatchedPatient(null);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+
+          if (event.type === "text") {
+            markdown += event.text;
+            setGeneratedDietMd(markdown);
+          } else if (event.type === "thinking") {
+            setThinkingSummary((current) => current + event.text);
+          } else if (event.type === "error") {
+            // El markdown ya emitido se conserva en pantalla a propósito.
+            startTransition(() => {
+              setError(event.message);
+              setThinkingSummary("");
+              setGenerationInterrupted(true);
+            });
+          } else if (event.type === "done") {
+            startTransition(() => {
+              setThinkingSummary("");
+              setSavedConsultationId(event.consultationId);
+              setSavedPatientId(event.patientId);
+              setGeneratedPatientName(
+                selectedMatchedPatient?.name_surnames ??
+                  event.patientName ??
+                  "Paciente",
+              );
+              setPendingTranscription(null);
+              setMatchedPatients([]);
+              setSelectedMatchedPatient(null);
+            });
+          }
+        }
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to process consultation",
-      );
+      // La conexión puede caerse a mitad del stream: el texto recibido se queda.
+      startTransition(() => {
+        setError(
+          err instanceof Error ? err.message : "Failed to process consultation",
+        );
+        setThinkingSummary("");
+        setGenerationInterrupted(true);
+      });
     } finally {
-      setIsProcessing(false);
-      setIsTranscribing(false);
+      startTransition(() => {
+        setIsProcessing(false);
+        setIsTranscribing(false);
+      });
     }
   };
 
@@ -350,23 +406,52 @@ export default function DietsPage() {
           </Card>
         </div>
 
-        {generatedDietMd && (
-          <Card className="border-2 border-green-500 dark:border-green-400">
+        {generatedDietMd !== null && (
+          <Card
+            className={
+              savedConsultationId
+                ? "border-2 border-green-500 dark:border-green-400"
+                : generationInterrupted
+                  ? "border-2 border-orange-500 dark:border-orange-400"
+                  : "border-2 border-blue-400 dark:border-blue-500"
+            }
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                Dieta Generada
+                {savedConsultationId ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : generationInterrupted ? (
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                ) : (
+                  <FileText className="h-5 w-5 animate-pulse text-blue-600" />
+                )}
+                {savedConsultationId
+                  ? "Dieta generada"
+                  : generationInterrupted
+                    ? "Dieta incompleta"
+                    : "Generando dieta…"}
               </CardTitle>
               <CardDescription>
-                La dieta de {generatedPatientName} ha sido guardada y está lista
-                para descargar.
+                {savedConsultationId
+                  ? `La dieta de ${generatedPatientName} ha sido guardada y está lista para descargar.`
+                  : generationInterrupted
+                    ? "La generación se interrumpió antes de terminar. El texto de abajo está incompleto y no se ha guardado."
+                    : `Escribiendo la dieta de ${generatedPatientName}. Puedes ir leyéndola.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-48 overflow-y-auto">
+              {/* Hueco mientras el modelo razona y todavía no escribe documento. */}
+              {thinkingSummary && !generatedDietMd && (
+                <div className="rounded-lg border border-dashed p-4">
+                  <p className="text-xs whitespace-pre-wrap text-gray-500 dark:text-gray-400">
+                    {thinkingSummary}
+                  </p>
+                </div>
+              )}
+
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-[60vh] overflow-y-auto">
                 <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
-                  {generatedDietMd.slice(0, 600)}
-                  {generatedDietMd.length > 600 ? "\n..." : ""}
+                  {generatedDietMd}
                 </pre>
               </div>
 
@@ -389,7 +474,7 @@ export default function DietsPage() {
                 <div className="space-y-2">
                   <Button
                     onClick={handleSaveDiet}
-                    // disabled={isSavingDiet || !savedConsultationId}
+                    disabled={isSavingDiet || !savedConsultationId}
                     className="w-full gap-2"
                     variant="default"
                   >

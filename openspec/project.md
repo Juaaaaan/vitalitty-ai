@@ -7,7 +7,7 @@ Reglas duras del proyecto:
 
 - Los client components llaman a route handlers (/api/...) con fetch, NUNCA a Server Actions.
 - Constraint de Vercel serverless: nada de readFileSync ni dependencias de filesystem; plantillas y ejemplos como constantes en el código.
-- React 19 + App Router: no combinar varios setState en el mismo handler sin useTransition (congela la UI sin errores).
+- `data` y `columns` de `useReactTable` siempre con referencia estable (estado o `useMemo`). Un array nuevo en cada render provoca un bucle infinito de renders que congela la pestaña sin errores. Fue la causa real del bloqueo de `/diets`, atribuido durante un tiempo a combinar varios setState sin useTransition.
 - Nunca editar a mano `src/components/ui/`: son ficheros generados por shadcn/ui.
 
 Dirección de esta fase:

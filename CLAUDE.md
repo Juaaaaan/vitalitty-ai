@@ -33,7 +33,7 @@ These are non-negotiable. They are also encoded in `openspec/config.yaml` so eve
 
 1. **Client → route handlers, never Server Actions.** Client components call `/api/*` with `fetch`. Do not add new Server Actions and do not call one from a client component.
 2. **No filesystem.** Vercel serverless: no `readFileSync`, no `path`-based asset loading, no runtime file access of any kind. Prompt templates and example diets live as TypeScript constants/modules in the repo.
-3. **React 19 + App Router:** never batch several `setState` calls in one handler without `useTransition`. It freezes the UI with no error and no stack trace.
+3. **TanStack Table inputs must be referentially stable.** `data` and `columns` passed to `useReactTable` come from state or `useMemo`, never a literal built during render (`data: x ? [x] : []`). A new reference every render makes the table recompute rows and reset pagination, which re-renders, which builds a new reference: an infinite render loop that freezes the whole tab with no error and no stack trace. This was the real cause of the `/diets` freeze, long misattributed to batching several `setState` calls without `useTransition` (see `app/diets/page.tsx`).
 4. **Never hand-edit `src/components/ui/`.** Those are shadcn/ui generated files — use the CLI.
 
 ## Architecture
@@ -66,11 +66,14 @@ The static block goes first and is the only part eligible for caching. Anything 
 
 ### Current state vs target
 
-The repo has not reached the target yet. Known deltas, so nobody documents them as done:
+Known deltas and open items, so nobody documents them as done:
 
-- `src/services/extraction-service.ts` still uses `gpt-4o` for both extraction and diet generation, and still fills a `{{placeholder}}` markdown template. Migrating it to Claude + single-pass generation is a pending change.
-- `@anthropic-ai/sdk` is not a dependency yet. Only `openai` is installed.
-- `app/actions/` still holds Server Actions (`save-consultation`, `upload-diet`). They predate rule 1 and are migrated as part of the generation change, not opportunistically.
+- **Time to first visible token not measured in the browser.** Server-side it is ~4–5 s to the first thinking summary. Acceptance check 8.2 of `2026-09-28-single-pass-diet-generation` was archived open, pending a manual measurement.
+- **Generation runs close to `maxDuration`.** A full diet takes 44–53 s against `maxDuration = 60`. Confirm the deployment plan's cap before relying on it.
+- **Only one example diet.** The static prompt block holds one real diet; adding a second is adding an element to `DIET_EXAMPLES`.
+- **Audio is not stored.** It is transcribed and discarded; there is no audio bucket and no audio column. Only `audio_transcription` is persisted.
+
+**Closed:** diet generation and extraction reached the target in change `2026-09-28-single-pass-diet-generation`: `src/services/diet-generation-service.ts` (single streamed pass, cached static block of instructions + example diets) and `src/services/consultation-extraction-service.ts` (structured output, in parallel, never blocks the document). `extraction-service.ts`, its template and `app/actions/` are gone; `upload-diet` became `POST /api/upload-diet`. Contracts in `openspec/specs/diet-generation/spec.md` and `openspec/specs/consultation-extraction/spec.md`.
 
 **Closed:** transcription reached the target in change `2026-09-28-switch-transcription-to-gpt4o`. `gpt-4o-transcribe`, `/api/transcribe` delegating to `transcribeAudio()`, 10 MB input cap → `413`. Its behaviour contract lives in `openspec/specs/audio-transcription/spec.md`.
 
@@ -86,7 +89,8 @@ The repo has not reached the target yet. Known deltas, so nobody documents them 
 ### Route handlers
 
 - `POST /api/transcribe` — multipart `audio` file → `{ text }`. Thin layer over `transcribeAudio()`: model, language and the 10 MB input cap live in the service, not here. `413` when the audio exceeds the cap, `400` with no audio, `500` on provider failure — every error body carries `error`, because the client reads it before looking at the status.
-- `POST /api/process-consultation` — `{ transcription, existingPatientId? }` → runs extraction and diet generation, persists to Supabase
+- `POST /api/process-consultation` — `{ transcription, existingPatientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, and `done` carries `consultationId`. `maxDuration = 60`.
+- `POST /api/upload-diet` — `{ consultationId, patientId, dietMd }` → `{ success, url?, error? }`. Uploads to the private `diets` bucket, stores the file **path** in `patient_consultations.documento_url` (the column name is legacy; it holds a path, not a URL) and returns a 1 h signed URL. `404` when the consultation isn't the user's.
 
 ### Server vs Client split
 
@@ -96,7 +100,7 @@ The repo has not reached the target yet. Known deltas, so nobody documents them 
 
 **Authentication:** Supabase Auth with SSR session refresh in `middleware.ts`. Client-side redirect to `/login` when unauthenticated.
 
-**Audio storage:** Supabase Storage bucket `"audios"`.
+**Storage:** one private bucket, `diets`, holding `{user_id}/{patient_id}/{consultation_id}.md`. Storage policies restrict each user to their own folder, mirroring the `created_by = auth.uid()` RLS on the tables. Links are signed on demand; never use `getPublicUrl()` — these are health data. Migrations live in `supabase/migrations/`.
 
 ### Folder Layout
 
@@ -105,12 +109,13 @@ app/
   api/              # Route handlers — the only way the client reaches the server
     transcribe/
     process-consultation/
-  actions/          # Server Actions (legacy — see "Current state vs target")
+    upload-diet/
   dashboard/        # Main authenticated pages
   login/            # Auth page
   diets/            # Audio + AI consultation flow
 lib/                # Repo root, NOT under src/ — no @/ alias
-  ai/openai.ts      # Shared OpenAI client
+  ai/openai.ts      # Shared OpenAI client (transcription)
+  ai/anthropic.ts   # Shared Anthropic client (generation + extraction)
   supabase/         # client.ts (browser) + server.ts (SSR)
 src/
   components/
@@ -118,12 +123,13 @@ src/
     layout/         # App shell: sidebar, login form, theme toggle
     audio/          # Audio recorder + transcription display
     calendar/       # Calendar client component
-  services/         # Business logic: transcription, extraction/generation, calendar
+  services/         # Business logic: transcription, diet generation, extraction, calendar
   models/           # TypeScript types (audio, calendar, dashboard, extraction)
-  constants/        # TanStack Table column definitions, magic numbers
+  constants/        # TanStack Table column definitions, example diets, magic numbers
   hooks/            # use-mobile.ts
   lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 middleware.ts       # Supabase SSR auth
+supabase/migrations/ # SQL migrations (Storage buckets and policies)
 openspec/           # Spec-driven change workflow (project.md, config.yaml, changes/)
 ```
 

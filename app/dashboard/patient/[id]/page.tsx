@@ -68,6 +68,27 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<string>("");
 
+  // El bucket "diets" es privado: `documento_url` guarda la ruta del fichero y
+  // el enlace se firma en el momento de abrirlo, con validez corta.
+  const openDiet = async (path: string) => {
+    // La pestaña se abre dentro del clic: abierta tras el await, el navegador
+    // la bloquearía como popup.
+    const tab = window.open("", "_blank");
+    if (tab) tab.opener = null;
+
+    const { data, error } = await supabase.storage
+      .from("diets")
+      .createSignedUrl(path, 60);
+
+    if (error || !data) {
+      console.error("Error signing diet URL:", error);
+      tab?.close();
+      return;
+    }
+
+    if (tab) tab.location.href = data.signedUrl;
+  };
+
   useEffect(() => {
     params.then((resolvedParams) => {
       setPatientId(resolvedParams.id);
@@ -410,20 +431,17 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
                       {/* Acción */}
                       <div className="shrink-0">
                         {consultation.documento_url ? (
-                          <a
-                            href={consultation.documento_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2"
+                            onClick={() =>
+                              openDiet(consultation.documento_url as string)
+                            }
                           >
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs h-7 px-2"
-                            >
-                              <FileTextIcon className="h-3 w-3 mr-1" />
-                              Ver dieta
-                            </Button>
-                          </a>
+                            <FileTextIcon className="h-3 w-3 mr-1" />
+                            Ver dieta
+                          </Button>
                         ) : (
                           <Button
                             variant="ghost"
