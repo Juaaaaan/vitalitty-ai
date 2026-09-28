@@ -47,4 +47,6 @@ export interface ConsultationData {
   consultation_summary?: string | null;
   /** Versión de la dieta dentro del paciente. La asigna la base de datos. */
   diet_version?: number | null;
+  /** Peso (kg) dictado en esta consulta. `patients.weight` es solo el último. */
+  weight?: number | null;
 }

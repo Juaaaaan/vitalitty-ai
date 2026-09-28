@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase/client";
 import { Patient } from "@/models/dashboard/patients";
@@ -27,8 +27,16 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { MAGIC_NUMBERS } from "@/constants/magic-numbers";
+import { buildEvolutionData } from "@/services/patient-evolution-service";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
@@ -57,6 +65,10 @@ const chartConfig = {
   calorias: {
     label: "Kcal objetivo",
     color: "var(--chart-1)",
+  },
+  peso: {
+    label: "Peso (kg)",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
@@ -129,13 +141,11 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
     fetchPatient();
   }, [patientId]);
 
-  // Build chart data: one bar per consultation that has kcal data
-  const chartData = consultations
-    .filter((c) => c.objetivo_calorias != null)
-    .map((c, idx) => ({
-      label: `C${idx + 1} · ${formatDate(c.created_at)}`,
-      calorias: c.objetivo_calorias,
-    }));
+  // Un punto por consulta con kcal o peso; cada serie en su propio eje.
+  const chartData = useMemo(
+    () => buildEvolutionData(consultations),
+    [consultations],
+  );
 
   const consultationsWithDiet = consultations.filter((c) => c.diet_md);
   const latestConsultation = consultations.at(-1);
@@ -310,20 +320,20 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
           )}
         </div>
 
-        {/* ── Gráfica de calorías ── */}
+        {/* ── Gráfica de evolución ── */}
         {chartData.length > MAGIC_NUMBERS.ZERO ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
             <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
-              Evolución calórica
+              Evolución
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Calorías objetivo registradas por consulta
+              Calorías objetivo y peso registrados por consulta
             </p>
             <ChartContainer
               config={chartConfig}
               className="max-h-[220px] w-full"
             >
-              <BarChart data={chartData} accessibilityLayer>
+              <ComposedChart data={chartData} accessibilityLayer>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -333,19 +343,40 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
                   tick={{ fontSize: 11 }}
                 />
                 <YAxis
+                  yAxisId="kcal"
                   tickLine={false}
                   axisLine={false}
                   tick={{ fontSize: 11 }}
                   width={45}
                   tickFormatter={(v) => `${v}`}
                 />
+                <YAxis
+                  yAxisId="kg"
+                  orientation="right"
+                  domain={["dataMin - 2", "dataMax + 2"]}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  width={40}
+                  tickFormatter={(v) => `${v} kg`}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar
+                  yAxisId="kcal"
                   dataKey="calorias"
                   fill="var(--color-calorias)"
                   radius={4}
                 />
-              </BarChart>
+                <Line
+                  yAxisId="kg"
+                  dataKey="peso"
+                  type="monotone"
+                  stroke="var(--color-peso)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "var(--color-peso)" }}
+                  connectNulls
+                />
+              </ComposedChart>
             </ChartContainer>
           </div>
         ) : null}

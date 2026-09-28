@@ -231,6 +231,9 @@ async function persist({
     .from("patient_consultations")
     .insert({
       ...consultation,
+      // El peso del paciente se sobrescribe en cada consulta; aquí queda el
+      // de esta, para el histórico. Sin peso dictado, null: nunca se copia.
+      weight: patient?.weight ?? null,
       patient_id: patientId,
       created_by: userId,
       audio_transcription: transcription,
