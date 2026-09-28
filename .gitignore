@@ -54,3 +54,4 @@ next-env.d.ts
 /graphify-out
 # Real patient documents (health data) — never commit
 /public/diets_example/
+/public/audio_example/

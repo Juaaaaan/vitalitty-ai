@@ -59,6 +59,74 @@ describe("extractConsultationData", () => {
     expect(result.consultation.objetivo_calorias).toBe(1450);
   });
 
+  it("exige el resumen de la consulta en el schema", async () => {
+    respondWith({ patient: { name_surnames: "Laura" }, consultation: {} });
+
+    await extractConsultationData("consulta");
+
+    const schema =
+      createMock.mock.calls[0][0].output_config.format.schema.properties
+        .consultation;
+    expect(schema.properties.consultation_summary.type).toBe("string");
+    expect(schema.required).toContain("consultation_summary");
+  });
+
+  it("no supera el límite de 16 parámetros con unión de tipos de la API", async () => {
+    respondWith({ patient: { name_surnames: "Laura" }, consultation: {} });
+
+    await extractConsultationData("consulta");
+
+    const { schema } = createMock.mock.calls[0][0].output_config.format;
+    const unions = [
+      ...Object.values(schema.properties.patient.properties),
+      ...Object.values(schema.properties.consultation.properties),
+    ].filter(
+      (property) =>
+        Array.isArray((property as { type?: unknown }).type) ||
+        "anyOf" in (property as object),
+    );
+    expect(unions.length).toBeLessThanOrEqual(16);
+  });
+
+  it('convierte "" y [] en null: significan "no se menciona"', async () => {
+    respondWith({
+      patient: { name_surnames: "Laura", mail: "", gender: "" },
+      consultation: {
+        medicacion: "",
+        alergias_intolerancias: [],
+        alimentos_evitar: ["marisco"],
+        consultation_summary: "",
+      },
+    });
+
+    const result = await extractConsultationData("consulta");
+
+    expect(result.patient.mail).toBeNull();
+    expect(result.patient.gender).toBeNull();
+    expect(result.consultation.medicacion).toBeNull();
+    expect(result.consultation.alergias_intolerancias).toBeNull();
+    expect(result.consultation.alimentos_evitar).toEqual(["marisco"]);
+    expect(result.consultation.consultation_summary).toBeNull();
+  });
+
+  it("devuelve el resumen tal cual, y null cuando no lo hay", async () => {
+    respondWith({
+      patient: { name_surnames: "Laura" },
+      consultation: { consultation_summary: "Sube la proteína." },
+    });
+    const withSummary = await extractConsultationData("consulta");
+    expect(withSummary.consultation.consultation_summary).toBe(
+      "Sube la proteína.",
+    );
+
+    respondWith({
+      patient: { name_surnames: "Laura" },
+      consultation: { consultation_summary: null },
+    });
+    const withoutSummary = await extractConsultationData("consulta");
+    expect(withoutSummary.consultation.consultation_summary).toBeNull();
+  });
+
   it("falla de forma explícita si la respuesta no trae texto", async () => {
     createMock.mockResolvedValue({ content: [] });
 

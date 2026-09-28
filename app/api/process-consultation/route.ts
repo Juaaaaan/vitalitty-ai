@@ -5,6 +5,15 @@ import {
   extractConsultationData,
   type ExtractionResult,
 } from "@/services/consultation-extraction-service";
+import { loadPatientMemory } from "@/services/patient-context-service";
+import type {
+  PatientMemory,
+  PatientMode,
+} from "@/models/patient-context/patient-memory.models";
+import {
+  NEW_PATIENT_WITHOUT_NAME_MESSAGE,
+  PATIENT_NOT_FOUND_MESSAGE,
+} from "@/constants/patient-memory";
 
 /**
  * Tope de duración de la función. 60 s es el valor admitido en todos los planes
@@ -22,14 +31,37 @@ type StreamEvent =
       consultationId: string;
       patientId: string;
       patientName: string;
+      dietVersion: number | null;
     };
 
 export async function POST(request: NextRequest) {
-  const { transcription, existingPatientId } = await request.json();
+  const { transcription, patientMode, patientId } = (await request.json()) as {
+    transcription?: string;
+    patientMode?: PatientMode;
+    patientId?: string | null;
+  };
 
   if (!transcription) {
     return NextResponse.json(
-      { error: "Transcription is required" },
+      { error: "Falta la transcripción. Graba la consulta de nuevo." },
+      { status: 400 },
+    );
+  }
+
+  // La elección de paciente es explícita: sin modo válido no se adivina nada.
+  if (patientMode !== "new" && patientMode !== "existing") {
+    return NextResponse.json(
+      {
+        error:
+          "Indica si el paciente es nuevo o existente antes de generar la dieta.",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (patientMode === "existing" && !patientId) {
+    return NextResponse.json(
+      { error: "Elige un paciente de la lista antes de generar la dieta." },
       { status: 400 },
     );
   }
@@ -41,32 +73,23 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json(
-      { error: "User not authenticated" },
+      { error: "Tu sesión ha caducado. Vuelve a iniciar sesión." },
       { status: 401 },
     );
   }
 
-  // Contexto del paciente y su última dieta, para generar en modo revisión.
-  let patientRow = null;
-  let previousDietMd: string | null = null;
-
-  if (existingPatientId) {
-    const { data } = await supabase
-      .from("patients")
-      .select("id, name_surnames, age, gender, height, weight")
-      .eq("id", existingPatientId)
-      .single();
-    patientRow = data;
-
-    const { data: lastConsultation } = await supabase
-      .from("patient_consultations")
-      .select("diet_md")
-      .eq("patient_id", existingPatientId)
-      .not("diet_md", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    previousDietMd = lastConsultation?.diet_md ?? null;
+  // Memoria del paciente existente: ficha, resúmenes recientes y última dieta.
+  // Se carga antes de lanzar ningún modelo: un paciente ajeno o inexistente
+  // (RLS lo oculta) corta aquí, sin gastar generación ni extracción.
+  let memory: PatientMemory | null = null;
+  if (patientMode === "existing") {
+    memory = await loadPatientMemory(supabase, patientId as string);
+    if (!memory) {
+      return NextResponse.json(
+        { error: PATIENT_NOT_FOUND_MESSAGE },
+        { status: 404 },
+      );
+    }
   }
 
   // La extracción arranca ya y corre de fondo: el documento no la espera.
@@ -89,8 +112,7 @@ export async function POST(request: NextRequest) {
       try {
         for await (const event of streamDietGeneration({
           transcription,
-          patient: patientRow,
-          previousDietMd,
+          memory,
         })) {
           if (event.type === "text") {
             dietMarkdown += event.text;
@@ -108,17 +130,17 @@ export async function POST(request: NextRequest) {
         }
 
         const extraction = await extractionPromise;
-        const { consultationId, patientId, patientName } = await persist({
+        const saved = await persist({
           supabase,
           userId: user.id,
           transcription,
           dietMarkdown,
           extraction,
-          existingPatientId: existingPatientId ?? null,
-          fallbackName: patientRow?.name_surnames ?? "",
+          existingPatientId: patientMode === "existing" ? patientId! : null,
+          fallbackName: memory?.personal.name_surnames ?? "",
         });
 
-        send({ type: "done", consultationId, patientId, patientName });
+        send({ type: "done", ...saved });
       } catch (error) {
         // La generación falló a mitad: no se escribe una consulta con dieta
         // parcial. El texto ya emitido se queda en pantalla del lado del cliente.
@@ -150,6 +172,7 @@ type PersistArgs = {
   transcription: string;
   dietMarkdown: string;
   extraction: ExtractionResult | null;
+  /** `null` = paciente nuevo, elegido explícitamente por el usuario. */
   existingPatientId: string | null;
   fallbackName: string;
 };
@@ -158,7 +181,11 @@ type PersistArgs = {
  * Escribe paciente y consulta en una sola pasada, al cerrar el stream.
  *
  * Si la extracción falló, `extraction` es null: la consulta se guarda igual con
- * el documento, que es la fuente de verdad, y sin los campos estructurados.
+ * el documento, que es la fuente de verdad, sin campos estructurados ni resumen.
+ *
+ * No hay emparejado implícito: un paciente nuevo crea siempre su fila (aunque
+ * su email ya exista) y uno existente reutiliza siempre la elegida. La versión
+ * de la dieta la asigna la base de datos al insertar.
  */
 async function persist({
   supabase,
@@ -187,37 +214,17 @@ async function persist({
       }
     }
   } else {
-    if (patient?.mail) {
-      const { data: matches } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("mail", patient.mail)
-        .limit(1);
-
-      if (matches && matches.length > 0) {
-        patientId = matches[0].id;
-        await supabase
-          .from("patients")
-          .update({ ...patient, updated_at: new Date().toISOString() })
-          .eq("id", patientId);
-      }
+    if (!patient?.name_surnames) {
+      throw new Error(NEW_PATIENT_WITHOUT_NAME_MESSAGE);
     }
+    const { data: newPatient, error } = await supabase
+      .from("patients")
+      .insert({ ...patient, created_by: userId })
+      .select("id")
+      .single();
 
-    if (!patientId) {
-      if (!patient) {
-        throw new Error(
-          "No hay paciente seleccionado y la extracción no devolvió datos para crearlo",
-        );
-      }
-      const { data: newPatient, error } = await supabase
-        .from("patients")
-        .insert({ ...patient, created_by: userId })
-        .select("id")
-        .single();
-
-      if (error) throw new Error(`Error creating patient: ${error.message}`);
-      patientId = newPatient.id;
-    }
+    if (error) throw new Error(`Error creating patient: ${error.message}`);
+    patientId = newPatient.id;
   }
 
   const { data: record, error: consultationError } = await supabase
@@ -229,7 +236,7 @@ async function persist({
       audio_transcription: transcription,
       diet_md: dietMarkdown,
     })
-    .select("id")
+    .select("id, diet_version")
     .single();
 
   if (consultationError) {
@@ -242,5 +249,6 @@ async function persist({
     consultationId: record.id as string,
     patientId: patientId as string,
     patientName: patient?.name_surnames || fallbackName,
+    dietVersion: (record.diet_version as number | null) ?? null,
   };
 }
