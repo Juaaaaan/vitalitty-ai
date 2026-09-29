@@ -16,15 +16,22 @@
  * de condiciones de cita son presentación: los pone la plantilla del PDF, no el
  * markdown, así que no entran aquí para que el modelo no los reproduzca.
  *
- * Para añadir otra dieta de ejemplo: escribir la constante y añadirla a la lista.
- * Ni el prompt ni la lógica de generación cambian.
+ * Toda dieta de ejemplo cumple el contrato del documento (ver
+ * `src/constants/diet-pdf/diet-contract.ts`): frontmatter con paciente,
+ * version, proxima_revision y calorias, y el conjunto cerrado de secciones. El
+ * modelo copia la estructura del ejemplo, así que un ejemplo que no lo cumpla
+ * produce dietas que la plantilla del PDF no sabe maquetar.
+ *
+ * Para añadir otra dieta de ejemplo: escribir la constante conforme al contrato
+ * y añadirla a la lista. Ni el prompt ni la lógica de generación cambian.
  */
 
-const EXAMPLE_DIET_1 = `# Plan nutricional
-
-**Próxima revisión:** 8 de enero de 2026 / 13:00
-
-**DIETA: 1400-1500 KCAL**
+const EXAMPLE_DIET_1 = `---
+paciente: Sandra de Gregorio
+version: 5
+proxima_revision: 8 de enero de 2026 / 13:00
+calorias: 1400-1500 KCAL
+---
 
 ## Objetivos
 
@@ -48,7 +55,7 @@ const EXAMPLE_DIET_1 = `# Plan nutricional
   - **Kéfir o queso batido:** 120 ml.
 - **Gazpacho y cremas:** 150-200 ml.
 
-## De lunes a viernes
+## Pre/Post-entreno
 
 **PRE-ENTRENO**
 Café
@@ -56,7 +63,7 @@ Café
 **POST-ENTRENO**
 Yogur proteico o plátano
 
-## Plan nutricional
+## Plan semanal
 
 ### Lunes: actividad
 
@@ -177,12 +184,7 @@ Asado, vapor (más recomendable), cocción y plancha.
 
 **¡MUCHO ÁNIMO!**
 
----
-
-Los cambios de una cita concertada deberán comunicarse con 24 horas de antelación, por el contrario:
-
-- Aviso previo inferior a 12 h: se considerará cita realizada, por lo que se cargará el importe ÍNTEGRO en la siguiente cita.
-- Aviso previo entre 12-24 h: se aplicará un incremento de 10 € en la siguiente cita. (1/1/20)`;
+`;
 
 export type DietExample = {
   /** Identificador corto, solo para trazas y para saber cuál es cuál. */

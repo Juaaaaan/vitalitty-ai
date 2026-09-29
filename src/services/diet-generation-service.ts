@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import anthropic from "../../lib/ai/anthropic";
 import { DIET_EXAMPLES } from "@/constants/diet-examples";
+import { DIET_CONTRACT_SPEC } from "@/constants/diet-pdf/diet-contract";
 import { CLINICAL_FIELD_LABELS } from "@/constants/patient-memory";
 import type { PatientMemory } from "@/models/patient-context/patient-memory.models";
 
@@ -24,10 +25,20 @@ Cópiales la forma, no el contenido. Los alimentos, cantidades, objetivos y supl
 
 ## ESTRUCTURA DEL DOCUMENTO — obligatorio
 
-- No añadas secciones que no aparezcan en los ejemplos. El documento tiene las secciones de los ejemplos, con sus nombres y en su orden
-- Empieza como empiezan los ejemplos. Nada de fichas de datos del paciente (nombre, edad, talla, peso, medicación) al principio: esos datos los usas para calcular, no se imprimen como cabecera
-- Reproduce la estructura de días de los ejemplos: cada día de la semana en su propio apartado, de lunes a domingo, con todas sus ingestas escritas. No agrupes ni resumas días — nada de "Lunes, miércoles y viernes" en un mismo apartado ni de "igual que el lunes" — salvo que la consulta lo pida expresamente
-- Si la consulta describe algo que la estructura de los ejemplos no cubre (turnos, guardias, un día especial), colócalo dentro de las secciones existentes: en el día que corresponda o en Observaciones. Si una sección no aplica al caso, omítela en lugar de rellenarla
+El documento se imprime con una plantilla de marca fija que reconoce estas secciones y solo estas. Una sección con otro nombre no se maqueta: se pierde.
+
+\`\`\`
+${DIET_CONTRACT_SPEC}
+\`\`\`
+
+- Empieza SIEMPRE por el frontmatter, entre \`---\`, con esos cuatro campos y ninguno más. \`paciente\` es el nombre del paciente de esta consulta; \`version\`, el número de versión de esta dieta
+- No añadas secciones fuera de esa lista, ni cambies sus nombres ni su orden
+- Nada de fichas de datos del paciente (edad, talla, peso, medicación) al principio: esos datos los usas para calcular, no se imprimen
+- En \`## Plan semanal\`, cada día de la semana va en su propio apartado \`### Lunes\`… \`### Domingo\`, con todas sus ingestas escritas, marcadas \`**COMIDA**\`, \`**MERIENDA**\`, \`**CENA**\`. No agrupes ni resumas días — nada de "Lunes, miércoles y viernes" en un mismo apartado ni de "igual que el lunes" — salvo que la consulta lo pida expresamente
+- Si el día tiene entreno, anótalo tras dos puntos: \`### Lunes: actividad\`
+- Si la consulta describe un plan por turnos en vez de por días, usa \`### Turno mañana\` y \`### Turno tarde\` como apartados. No añadas ningún campo al frontmatter por ello
+- Si una sección no aplica al caso, omítela en lugar de rellenarla. Cualquier otra cosa que la consulta mencione y no encaje, va en \`## Observaciones\`
+- Las cantidades van por grupo de alimento, en \`## Cantidades\`, como en los ejemplos. NUNCA gramos de macronutriente ni tablas de macros
 
 ## CÁLCULO CALÓRICO
 
