@@ -47,6 +47,13 @@ export function CalendarPageClient({
     });
   }, [appointments, searchQuery]);
 
+  // El servidor carga la agenda del mes actual. Al navegar a otro mes no hay
+  // datos que mostrar, y ahí "no tienes citas" sería mentira: el aviso de
+  // agenda vacía solo se da sobre el mes que sí se ha cargado.
+  const isLoadedMonth =
+    currentMonth.getFullYear() === today.getFullYear() &&
+    currentMonth.getMonth() === today.getMonth();
+
   const todayAppointments = useMemo(
     () => appointments.filter((a) => isSameDay(new Date(a.start_time), today)),
     [appointments, today],
@@ -76,11 +83,18 @@ export function CalendarPageClient({
       />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <CalendarGrid
-          month={currentMonth}
-          appointments={filteredAppointments}
-          today={today}
-        />
+        <div className="space-y-3">
+          <CalendarGrid
+            month={currentMonth}
+            appointments={filteredAppointments}
+            today={today}
+          />
+          {isLoadedMonth && appointments.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No tienes citas este mes.
+            </p>
+          )}
+        </div>
         <CalendarSidePanel
           appointments={todayAppointments}
           today={today}

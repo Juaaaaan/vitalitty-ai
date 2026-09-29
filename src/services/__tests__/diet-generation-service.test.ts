@@ -181,6 +181,37 @@ describe("buildDietGenerationRequest", () => {
   it("el bloque estático explica cómo usar la memoria del paciente", () => {
     expect(STATIC_PROMPT_BLOCK).toContain("## MEMORIA DEL PACIENTE");
   });
+
+  it("modo instrucción: el bloque estático no cambia ni un byte", () => {
+    expect(
+      systemText({ instruction: "sube el hidrato de la cena", memory: MEMORY }),
+    ).toBe(systemText({ transcription: "consulta dictada", memory: MEMORY }));
+  });
+
+  it("modo instrucción: la petición va después de la memoria y la dieta anterior", () => {
+    const user = userText({
+      instruction: "sube el hidrato de la cena a 60 g",
+      memory: memoryWith({ lastDietMd: "# Dieta v1" }),
+    });
+
+    const memory = user.indexOf("MEMORIA DEL PACIENTE");
+    const revision = user.indexOf("MODO REVISIÓN");
+    const request = user.indexOf("PETICIÓN DIRECTA, SIN CONSULTA GRABADA");
+    expect(memory).toBeGreaterThanOrEqual(0);
+    expect(memory).toBeLessThan(revision);
+    expect(revision).toBeLessThan(request);
+
+    expect(user).toContain("sube el hidrato de la cena a 60 g");
+    // No hay consulta grabada: no debe anunciarse una transcripción que no existe.
+    expect(user).not.toContain("TRANSCRIPCIÓN DE LA CONSULTA");
+  });
+
+  it("modo instrucción: avisa de que no hay consulta y de que solo se aplica lo pedido", () => {
+    const user = userText({ instruction: "quita el kéfir", memory: MEMORY });
+
+    expect(user).toContain("no nace de una consulta dictada");
+    expect(user).toContain("Aplica exactamente lo pedido y nada más");
+  });
 });
 
 describe("streamDietGeneration", () => {
