@@ -1,37 +1,16 @@
 /**
- * Dietas reales que entran en el bloque estático del prompt de generación.
+ * Una dieta tal y como se guardó ANTES del contrato del documento: sin
+ * frontmatter y con las secciones del formato antiguo.
  *
- * Son ejemplos: el modelo copia de ellas estructura, tono y nivel de detalle.
- * Viven aquí como constantes y no como ficheros porque el entorno de despliegue
- * es serverless y no hay filesystem en runtime, y porque el bloque estático del
- * prompt debe ser idéntico byte a byte entre peticiones para que la caché lo
- * reutilice — una conversión en vivo no lo garantiza.
- *
- * Origen: el PDF de una paciente real, convertido a markdown una vez y revisado
- * a mano (el PDF pierde ligaduras "ti"/"fi" al extraer texto, y su pie de página
- * se repite en cada página, cortando una de las cenas). El PDF no se versiona:
- * son datos de salud. Aquí solo queda el contenido, sin datos identificativos.
- *
- * Solo se vuelca el contenido. La portada, el logo, el @ de Instagram y el pie
- * de condiciones de cita son presentación: los pone la plantilla del PDF, no el
- * markdown, así que no entran aquí para que el modelo no los reproduzca.
- *
- * Toda dieta de ejemplo cumple el contrato del documento (ver
- * `src/constants/diet-pdf/diet-contract.ts`): frontmatter con paciente,
- * version, proxima_revision y calorias, y el conjunto cerrado de secciones. El
- * modelo copia la estructura del ejemplo, así que un ejemplo que no lo cumpla
- * produce dietas que la plantilla del PDF no sabe maquetar.
- *
- * Para añadir otra dieta de ejemplo: escribir la constante conforme al contrato
- * y añadirla a la lista. Ni el prompt ni la lógica de generación cambian.
+ * Es una copia congelada a propósito. `diet-examples.ts` se reescribió al
+ * contrato, así que ya no sirve para comprobar que las consultas anteriores
+ * siguen viéndose; este fichero sí.
  */
+export const LEGACY_DIET_WITHOUT_FRONTMATTER = `# Plan nutricional
 
-const EXAMPLE_DIET_1 = `---
-paciente: Sandra de Gregorio
-version: 5
-proxima_revision: 8 de enero de 2026 / 13:00
-calorias: 1400-1500 KCAL
----
+**Próxima revisión:** 8 de enero de 2026 / 13:00
+
+**DIETA: 1400-1500 KCAL**
 
 ## Objetivos
 
@@ -55,7 +34,7 @@ calorias: 1400-1500 KCAL
   - **Kéfir o queso batido:** 120 ml.
 - **Gazpacho y cremas:** 150-200 ml.
 
-## Pre/Post-entreno
+## De lunes a viernes
 
 **PRE-ENTRENO**
 Café
@@ -63,7 +42,7 @@ Café
 **POST-ENTRENO**
 Yogur proteico o plátano
 
-## Plan semanal
+## Plan nutricional
 
 ### Lunes: actividad
 
@@ -184,18 +163,9 @@ Asado, vapor (más recomendable), cocción y plancha.
 
 **¡MUCHO ÁNIMO!**
 
-`;
+---
 
-export type DietExample = {
-  /** Identificador corto, solo para trazas y para saber cuál es cuál. */
-  id: string;
-  /** La dieta completa en markdown, tal cual entra en el prompt. */
-  markdown: string;
-};
+Los cambios de una cita concertada deberán comunicarse con 24 horas de antelación, por el contrario:
 
-/**
- * El orden importa: forma parte del bloque estático cacheado y debe ser estable.
- */
-export const DIET_EXAMPLES: readonly DietExample[] = [
-  { id: "example-1", markdown: EXAMPLE_DIET_1 },
-] as const;
+- Aviso previo inferior a 12 h: se considerará cita realizada, por lo que se cargará el importe ÍNTEGRO en la siguiente cita.
+- Aviso previo entre 12-24 h: se aplicará un incremento de 10 € en la siguiente cita. (1/1/20)`;

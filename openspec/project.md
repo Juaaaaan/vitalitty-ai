@@ -16,3 +16,7 @@ Dirección de esta fase:
 - Documento-primero: la dieta se guarda como markdown y ese markdown es la fuente de verdad. Los campos estructurados son una proyección ligera para consultar, comparar y graficar.
 - Prompt de generación cacheado. Orden obligatorio: `[estático: instrucciones + dietas de ejemplo]` → `[contexto de paciente]` → `[transcripción]`. El bloque estático va primero y es el único cacheable; todo lo específico del paciente va después.
 - La app aporta lo que un Proyecto NO puede: BD por paciente, histórico, comparación de dietas entre citas, gráficas.
+- Separación contenido / presentación: el modelo escribe SOLO el contenido, en markdown y conforme a un contrato cerrado (frontmatter con `paciente`, `version`, `proxima_revision`, `calorias` — sin macros — y un conjunto fijo de secciones). Todo el diseño lo aporta una plantilla de marca única, que alimenta por igual la vista previa en pantalla y el PDF. El PDF de referencia se usó como especificación de diseño en desarrollo, nunca como entrada en runtime.
+- El PDF es una caché del documento, no una pieza aparte: nace solo al aprobar, se guarda junto al `.md` en el bucket privado `diets`, y se reutiliza mientras su huella coincida con el `diet_md` actual. Una corrección del documento lo invalida por construcción.
+
+Gestor de paquetes: **pnpm**. `npm install` falla en este repo (arborist revienta con el árbol de `node_modules/.pnpm`); los `npm run <script>` sí funcionan.

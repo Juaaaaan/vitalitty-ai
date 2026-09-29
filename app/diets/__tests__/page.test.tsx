@@ -100,6 +100,16 @@ describe("Diets page", () => {
             ]),
           );
         }
+        if (url === "/api/diet-preview") {
+          // Al cerrarse el stream la consulta ya está guardada, así que la
+          // página pasa del markdown en bruto a la vista previa maquetada.
+          return new Response(
+            JSON.stringify({
+              html: "<!doctype html><html><body>Subir la proteína</body></html>",
+              structured: true,
+            }),
+          );
+        }
         throw new Error(`unexpected fetch ${url}`);
       }),
     );
@@ -136,7 +146,17 @@ describe("Diets page", () => {
     fireEvent.click(await screen.findByText("Generar dieta"));
 
     await screen.findByText("Dieta generada", {}, { timeout: 3000 });
-    expect(screen.getByText(/Subir la proteína/)).toBeDefined();
+    // Guardada la consulta, el documento se ve maquetado con la plantilla: el
+    // markdown en bruto deja paso a la vista previa, que es sobre la que se
+    // corrige y se aprueba.
+    // El iframe se monta vacío y se rellena cuando responde la vista previa.
+    await waitFor(() =>
+      expect(
+        screen.getByTitle("Vista previa de la dieta").getAttribute("srcdoc"),
+      ).toContain("Subir la proteína"),
+    );
+    expect(screen.getByText("Modificar")).toBeDefined();
+    expect(screen.getByText("Aprobar y generar PDF")).toBeDefined();
     expect(screen.getByText(/versión 2/)).toBeDefined();
     expect(processConsultationBody()).toEqual({
       transcription: "Revisión de Laura, sube la proteína.",

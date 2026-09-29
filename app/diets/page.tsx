@@ -17,6 +17,7 @@ import { COLUMNS_PATIENTS } from "@/constants/dashboard";
 import { CHOOSE_PATIENT_TO_RECORD_MESSAGE } from "@/constants/patient-memory";
 import type { PatientMode } from "@/models/patient-context/patient-memory.models";
 import { PatientPicker } from "@/components/patients/patient-picker";
+import { DietApproval } from "@/components/diets/diet-approval";
 import {
   Table,
   TableBody,
@@ -496,11 +497,22 @@ export default function DietsPage() {
                 </div>
               )}
 
-              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-[60vh] overflow-y-auto">
-                <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
-                  {generatedDietMd}
-                </pre>
-              </div>
+              {/* Mientras se escribe se ve el markdown en bruto; en cuanto la
+                  consulta está guardada se pasa a la vista previa maquetada,
+                  que es sobre la que el usuario corrige y aprueba. */}
+              {savedConsultationId ? (
+                <DietApproval
+                  consultationId={savedConsultationId}
+                  dietMd={generatedDietMd}
+                  onDietMdChange={setGeneratedDietMd}
+                />
+              ) : (
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border p-4 max-h-[60vh] overflow-y-auto">
+                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+                    {generatedDietMd}
+                  </pre>
+                </div>
+              )}
 
               {/* Sección de subida */}
               {dietSavedUrl ? (

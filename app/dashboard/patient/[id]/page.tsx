@@ -53,6 +53,7 @@ interface ConsultationRecord extends ConsultationData {
   created_by: string;
   diet_md?: string | null;
   documento_url?: string | null;
+  pdf_path?: string | null;
   dieta_generada?: string | null;
   diet_portions?: DietPortions | null;
 }
@@ -468,7 +469,27 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
                       </div>
 
                       {/* Acción */}
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex items-center gap-1">
+                        {consultation.pdf_path ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2"
+                            onClick={() =>
+                              openDiet(consultation.pdf_path as string)
+                            }
+                          >
+                            <FileTextIcon className="h-3 w-3 mr-1" />
+                            Ver PDF
+                          </Button>
+                        ) : (
+                          // Sin PDF: se dice, en vez de ofrecer una descarga
+                          // que fallaría. Son las dietas anteriores a la
+                          // plantilla y las que aún no se han aprobado.
+                          <span className="text-xs text-gray-400 px-2">
+                            Sin PDF
+                          </span>
+                        )}
                         {consultation.documento_url ? (
                           <Button
                             variant="ghost"
