@@ -37,6 +37,9 @@ import {
 } from "recharts";
 import { MAGIC_NUMBERS } from "@/constants/magic-numbers";
 import { buildEvolutionData } from "@/services/patient-evolution-service";
+import { DietComparison } from "@/components/patients/diet-comparison";
+import { PortionsChart } from "@/components/patients/portions-chart";
+import type { DietPortions } from "@/models/diet-comparison/diet-comparison.models";
 
 interface PatientDetailPageProps {
   params: Promise<{ id: string }>;
@@ -51,6 +54,7 @@ interface ConsultationRecord extends ConsultationData {
   diet_md?: string | null;
   documento_url?: string | null;
   dieta_generada?: string | null;
+  diet_portions?: DietPortions | null;
 }
 
 const formatDate = (dateString: string) => {
@@ -380,6 +384,10 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             </ChartContainer>
           </div>
         ) : null}
+
+        {/* ── Raciones y comparación de dietas ── */}
+        <PortionsChart patientId={patientId} consultations={consultations} />
+        <DietComparison consultations={consultations} />
 
         {/* ── Historial de consultas ── */}
         {consultations.length > MAGIC_NUMBERS.ZERO && (

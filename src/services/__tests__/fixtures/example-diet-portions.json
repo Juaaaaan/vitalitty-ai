@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "group": "hidrato_comida",
+      "label": "Hidrato en comida",
+      "min": 60,
+      "max": 60,
+      "unit": "g",
+      "alternatives": "o 200 gr de patata o batata"
+    },
+    {
+      "group": "hidrato_cena",
+      "label": "Hidrato en cena",
+      "min": 30,
+      "max": 30,
+      "unit": "g",
+      "alternatives": "o 180 gr de patata o batata (de manera opcional añadir un día)"
+    },
+    {
+      "group": "proteina",
+      "label": "Proteína",
+      "min": 140,
+      "max": 140,
+      "unit": "g",
+      "alternatives": "160 gr de pescado azul, blanco y carne blanca"
+    },
+    {
+      "group": "lacteos",
+      "label": "Queso fresco",
+      "min": 60,
+      "max": 60,
+      "unit": "g",
+      "alternatives": "120 ml de kéfir o queso batido"
+    },
+    {
+      "group": "pan",
+      "label": "Pan en tostadas o sándwiches",
+      "min": 40,
+      "max": 40,
+      "unit": "g",
+      "alternatives": ""
+    },
+    {
+      "group": "grasas",
+      "label": "Frutos secos",
+      "min": 10,
+      "max": 10,
+      "unit": "g",
+      "alternatives": ""
+    },
+    {
+      "group": "verdura",
+      "label": "Gazpacho y cremas",
+      "min": 150,
+      "max": 200,
+      "unit": "ml",
+      "alternatives": ""
+    }
+  ]
+}
