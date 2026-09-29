@@ -89,6 +89,16 @@ Day vs shift is inferred from the heading, never from an extra frontmatter field
 
 Inside a day, **any** line that is just `**text**` is a meal label — no closed vocabulary. An earlier whitelist silently dropped every meal, because the generator writes the time into the label (`**COMIDA (15:00)**`) and uses names no list covers (`**PRIMERA INGESTA**`, `**POST-PÁDEL**`, `**PRE-CAMA**`); the PDF came out with seven day headings and no food. `###` inside a prose section becomes a subheading, which is how `## Observaciones` groups Horarios / Alimentos / Técnicas / Hábitos.
 
+### The assistant — a bounded agent
+
+`/asistente` runs an Anthropic tool-use loop inside a route handler. The model gets a closed catalogue of domain tools (`src/services/assistant/catalog.ts`) and nothing else: no SQL, no shell, no file access. Every tool runs with the session's Supabase client, so RLS — not the prompt — is what keeps it inside the user's own patients.
+
+A signed PDF URL never goes through the model. When a tool returns a document, the loop splits it: the URL leaves as its own `document` event that the page renders as "Ver dieta v17 · 29 sept 2026", and the model is told only the version, the date and that the link is already on screen. The prompt forbids writing URLs. The date shown is the consultation's, i.e. when that version was created — `patient_consultations` has no `updated_at`, so there is no modification date to show.
+
+**Reads run free, writes are confirmed.** Each tool declares `kind: "read" | "write"` next to its definition, and that flag is what the dispatcher acts on. The loop only imports `read-tools.ts`, so a write tool is not merely discouraged there — it is unreachable. A write is turned into a proposal by `proposals.ts` (which loads neither Chromium nor the generation model) and only ever executed by `POST /api/assistant/confirm`, which revalidates the tool, the arguments and the ownership. `catalog.test.ts` is the alarm if a write tool ever appears in the read dispatcher.
+
+That split also buys the time budget: the loop and a full diet generation cannot share one `maxDuration = 60`. `generar_dieta` reuses the generation engine with an instruction instead of a transcription and, once confirmed, saves a **new diet version** (the DB trigger assigns N+1); it never overwrites the current one.
+
 ### The PDF template
 
 One template (`src/services/diet-template.ts`) feeds both the on-screen preview and the print. Brand assets — logo, Instagram icon, Tinos and Carlito (metric clones of Times New Roman and Calibri, both SIL OFL 1.1) — are data URIs in `src/constants/diet-pdf/`, both because of the no-filesystem rule and so the render is hermetic: a font fetched over the network could fail and silently repaginate the document.
@@ -112,6 +122,9 @@ Known deltas and open items, so nobody documents them as done:
 - **The model still writes some macronutrient grams.** A real generation produced "45 g HC", "200-210 g diarios (≈2,2 g/kg)" in Objetivos and Cantidades, although the contract forbids macro grams and asks for amounts per food group. It doesn't break the template, but the prompt rule isn't holding — partly because the dictated consultation itself asks for kcal/kg and a protein target.
 - **Patient memory can't forget.** The card takes the latest non-empty value of each clinical field, so a restriction that disappears is only overridden by what the new transcription says (the static prompt tells the model the transcription wins). There is no editable patient card yet.
 - **Consultations saved before `add-patient-persistent-context` have no summary.** They are skipped in the memory; only their full diet is used when it is the latest one.
+- **Assistant timings, measured in the browser against `maxDuration = 60` (local dev, 2026-09-29).** A read turn with one tool: 3.3 s, first event at 2.1 s. Three tools: 7.6 s. A turn whose comparison was not yet cached: ~35 s — `comparar_dietas` in the cold path is by far the most expensive read. A confirmed `generar_dieta`: **~50 s** end to end, the same margin as `/api/process-consultation` and the reason generation stays out of the loop. A confirmed `render_pdf` (render + upload + sign): under 35 s with the system Chrome. None of it predicts `@sparticuz/chromium` unpacking on Vercel: re-measure there.
+- **The agenda starts empty.** `appointments` is a real table now, but there is no UI to create an appointment yet: they are seeded with `scripts/seed-appointments.ts` (needs the service-role key). Until then the calendar and `pacientes_por_criterio` have nothing to show.
+- **The calendar only loads the current month.** Navigating to another month shows no appointments, because the server component fetches one month. That predates this change; the empty-agenda notice is deliberately shown only for the loaded month, so it never claims a month is empty when it was simply not fetched.
 - **Audio is not stored.** It is transcribed and discarded; there is no audio bucket and no audio column. Only `audio_transcription` is persisted.
 
 **Closed:** diet generation and extraction reached the target in change `2026-09-28-single-pass-diet-generation`: `src/services/diet-generation-service.ts` (single streamed pass, cached static block of instructions + example diets) and `src/services/consultation-extraction-service.ts` (structured output, in parallel, never blocks the document). `extraction-service.ts`, its template and `app/actions/` are gone; `upload-diet` became `POST /api/upload-diet`. Contracts in `openspec/specs/diet-generation/spec.md` and `openspec/specs/consultation-extraction/spec.md`.
@@ -131,14 +144,17 @@ Known deltas and open items, so nobody documents them as done:
 - `/` → client-side redirect to `/dashboard`
 - `/login` → Supabase email/password auth
 - `/dashboard` → Patient list with TanStack React Table CRUD
-- `/dashboard/calendar` → Monthly appointments calendar (async server component)
+- `/dashboard/calendar` → Monthly appointments calendar (async server component), reading the real `appointments` table. It used to render a hardcoded mock, so it starts empty until appointments are seeded (`scripts/seed-appointments.ts`)
 - `/dashboard/patient/[id]` → Patient detail: data, an evolution chart (target kcal as bars + weight as a line, one axis each, one point per consultation) and the consultation history. Weight is stored per consultation in `patient_consultations.weight`; `patients.weight` only holds the latest known value. Below it: portions per food group across diet versions, and "Comparar dietas": pick a version N and see it against N-1 (kcal, weight, portions with Δ, foods in/out, AI summary of what changed and why). Consecutive pairs only; no macros — diets prescribe portions, not macro grams
+- `/asistente` → Assistant: ask in natural language about your own patients, their diets, their evolution and the agenda. The model never sees SQL or a shell — it calls a closed catalogue of domain tools that the server executes. Reads run on their own; anything that writes (`generar_dieta`, `render_pdf` when the PDF must be made) is **proposed** and only runs after an explicit confirmation. Input by chat or by dictation (reuses `POST /api/transcribe`; the text lands in the box, it is never sent on its own). The thread is ephemeral: it lives in React state and is resent whole on each request, and nothing is persisted
 - `/diets` → Choose new/existing patient → audio recording → transcription → diet generation → save consultation → **branded HTML preview → Modificar (edit the markdown) → Aprobar (renders and stores the PDF, then offers the download)**. Nothing reaches the user's disk before that approval, and no PDF exists until then. Recording stays disabled until the patient choice is complete; the patient is never guessed from the transcription
 
 ### Route handlers
 
 - `POST /api/transcribe` — multipart `audio` file → `{ text }`. Thin layer over `transcribeAudio()`: model, language and the 10 MB input cap live in the service, not here. `413` when the audio exceeds the cap, `400` with no audio, `500` on provider failure — every error body carries `error`, because the client reads it before looking at the status.
 - `POST /api/process-consultation` — `{ transcription, patientMode: "new" | "existing", patientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. `400` on missing/invalid mode or `existing` without id; `404` when the patient isn't the user's — both before any model call. For `existing` it loads the patient memory (`src/services/patient-context-service.ts`: card with the latest known clinical values + summaries of the last 3 diets + last full diet) and injects it after the cached static block, before the transcription; `new` gets no memory and always creates a patient row (no email matching). Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, with the extraction's `consultation_summary` and the weight dictated in it (`null` if none — never copied from the patient), and `done` carries `consultationId` and `dietVersion` (assigned by a DB trigger, 1 for a new patient, N+1 otherwise). `maxDuration = 60`.
+- `POST /api/assistant` — `{ messages }` (the whole thread, last one from the user) → NDJSON stream of `text` / `tool_start` / `tool_end` / `proposal` / `error` / `done`. Runs the Anthropic tool-use loop server-side with the extraction model: read tools execute on their own, write tools are **not executed** — the turn ends with a `proposal` event. At most 8 tool iterations per turn; hitting the cap closes the turn saying so. `400` on an empty or malformed thread, `401` without a session. `maxDuration = 60`.
+- `POST /api/assistant/confirm` — `{ tool, input }` → `{ result }`. The only place the assistant writes, and the only one that generates a diet or renders a PDF — hence its own `maxDuration = 60`, which is why neither runs inside the loop. It revalidates everything: that the tool exists and is a write tool, that the arguments are valid and (via RLS, inside the executor) that the patient is the user's. Having been proposed earlier is not a permission. `400` on an unknown or read-only tool, `404` on someone else's patient, `500` saying nothing was saved.
 - `POST /api/diet-portions` — `{ patientId }` → `{ portions: [{ consultationId, dietVersion, createdAt, portions }], failed: [consultationId] }`. Projects (once, extraction model, 4 in parallel, each saved as it finishes) the portions of every diet of the patient that lacks `diet_portions` or has an older format version. Never returns `diet_md`. `400` without id, `404` when the patient isn't the user's. The patient page only calls it when some diet is missing portions. `maxDuration = 60`.
 - `POST /api/compare-diets` — `{ consultationId }` → `{ previous, current, portions, added, removed, summary }`. Compares diet N with the previous existing version of the same patient. The result is cached in `diet_changes` of row N and reused while `previousConsultationId` still matches; never generates or edits a diet. "Why" comes from N's transcription (fallback: its `consultation_summary`; with neither, the summary says the reason is not recorded). `400` without id, `404` for someone else's / missing / diet-less consultation, `409` for a first diet, `500` on model failure — all with `error` in Spanish. `maxDuration = 60`.
 - `POST /api/diet-preview` — `{ consultationId }` → `{ html, structured }`. Lays the consultation's `diet_md` out with the brand template and returns the HTML, which the client paints in an isolated iframe. `structured` is false for a document that doesn't follow the markdown contract — those render raw and can't be exported. Deliberately imports neither `puppeteer-core` nor `pdf-lib`, so the route carries no Chromium. `400` without id, `404` when the consultation isn't the user's.
@@ -166,10 +182,12 @@ app/
     diet-preview/     # diet_md -> branded HTML (no Chromium)
     diet-document/    # PUT: rewrite diet_md
     diet-pdf/         # render + store + signed URL (loads Chromium)
+    assistant/        # tool-use loop (NDJSON) + confirm/ (executes a confirmed write)
     upload-diet/
   dashboard/        # Main authenticated pages
   login/            # Auth page
   diets/            # Audio + AI consultation flow
+  asistente/        # Assistant: chat + voice over the domain tools
 lib/                # Repo root, NOT under src/ — no @/ alias
   ai/openai.ts      # Shared OpenAI client (transcription)
   ai/anthropic.ts   # Shared Anthropic client (generation + extraction)
@@ -179,6 +197,7 @@ src/
     ui/             # shadcn/ui primitives (do not edit manually — use CLI)
     layout/         # App shell: sidebar, login form, theme toggle
     audio/          # Audio recorder + transcription display
+    assistant/      # Assistant thread, input and the confirmation card for a proposed write
     diets/          # Preview + Modificar + Aprobar of the generated document
     patients/       # Patient picker (keyed by id, shows contact to tell namesakes apart), diet comparison, portions chart
     calendar/       # Calendar client component

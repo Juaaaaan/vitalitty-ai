@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, SquareTerminal } from "lucide-react";
+import { Bot, CalendarDays, SquareTerminal } from "lucide-react";
 import { NavMain } from "@/components/layout/nav/nav-main";
 import { NavUser } from "@/components/layout/nav/nav-user";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -37,6 +37,17 @@ const data = {
         {
           title: "Creación de dietas",
           url: "/diets",
+        },
+      ],
+    },
+    {
+      title: "Asistente",
+      url: "#",
+      icon: Bot,
+      items: [
+        {
+          title: "Preguntar",
+          url: "/asistente",
         },
       ],
     },

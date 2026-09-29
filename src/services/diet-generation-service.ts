@@ -134,14 +134,33 @@ export const STATIC_PROMPT_BLOCK = `${INSTRUCTIONS}
 
 ${renderExamples()}`;
 
+/**
+ * Instrucción directa en lugar de transcripción.
+ *
+ * Va en el bloque variable, nunca en el estático: es lo que permite que el
+ * asistente pida un retoque sin invalidar el prefijo cacheado. El texto avisa
+ * al modelo de que no hay consulta grabada, porque el bloque estático —que no
+ * puede variar— habla siempre de una transcripción.
+ */
+const INSTRUCTION_MODE_PREAMBLE = `## PETICIÓN DIRECTA, SIN CONSULTA GRABADA
+
+Esta dieta no nace de una consulta dictada: la nutricionista pide un retoque concreto por escrito.
+
+- Aplica exactamente lo pedido y nada más. Lo que la petición no cuestione se mantiene igual
+- Sigue valiendo todo lo anterior: el contrato del documento, los alimentos concretos con cantidades y la prohibición de gramos de macronutriente
+- Lo que la petición no diga se resuelve con la memoria del paciente y su dieta anterior, nunca con datos inventados`;
+
 export type DietGenerationInput = {
-  transcription: string;
   /**
    * Memoria del paciente existente. `null` para un paciente nuevo: entonces el
-   * contexto es solo el bloque estático y la transcripción.
+   * contexto es solo el bloque estático y lo dicho para esta dieta.
    */
   memory?: PatientMemory | null;
-};
+} & (
+  | { transcription: string; instruction?: undefined }
+  /** Retoque pedido por escrito, desde el asistente. */
+  | { instruction: string; transcription?: undefined }
+);
 
 function formatValue(value: string | string[] | number): string {
   return Array.isArray(value) ? value.join(", ") : String(value);
@@ -205,7 +224,11 @@ export function buildDietGenerationRequest(
     }
   }
 
-  userBlocks.push(`TRANSCRIPCIÓN DE LA CONSULTA\n\n${input.transcription}`);
+  userBlocks.push(
+    input.instruction != null
+      ? `${INSTRUCTION_MODE_PREAMBLE}\n\nPETICIÓN\n\n${input.instruction}`
+      : `TRANSCRIPCIÓN DE LA CONSULTA\n\n${input.transcription}`,
+  );
 
   return {
     model: DIET_GENERATION_MODEL,
