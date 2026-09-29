@@ -122,6 +122,8 @@ Known deltas and open items, so nobody documents them as done:
 
 **Closed:** weight history in change `2026-09-29-add-weight-history`: each consultation stores the weight dictated in it (`patient_consultations.weight`, `null` if none), `patients.weight` stays as the latest known value, and the patient page charts target kcal (bars) and weight (line) on separate axes. Pre-existing consultations were backfilled once from their transcriptions with `scripts/backfill-consultation-weight.ts`. Contracts in `openspec/specs/patient-evolution/spec.md` and `openspec/specs/consultation-extraction/spec.md`.
 
+**Closed:** the branded PDF in change `2026-09-29-add-branded-diet-pdf`: the generated markdown follows a closed contract, one template feeds both the on-screen preview and the print, and `/diets` gained preview → Modificar → Aprobar, with the PDF created only on approval. `POST /api/diet-preview`, `PUT /api/diet-document` and `POST /api/diet-pdf`; `pdf_path` and `pdf_source_hash` on `patient_consultations`; the `.pdf` next to its `.md` in the private `diets` bucket, whose config was widened to accept `application/pdf`. Contracts in `openspec/specs/diet-document-template/spec.md`, `openspec/specs/diet-pdf-export/spec.md` and `openspec/specs/diet-document-editing/spec.md`.
+
 **Closed:** transcription reached the target in change `2026-09-28-switch-transcription-to-gpt4o`. `gpt-4o-transcribe`, `/api/transcribe` delegating to `transcribeAudio()`, 10 MB input cap → `413`. Its behaviour contract lives in `openspec/specs/audio-transcription/spec.md`.
 
 ### Routing & Pages
