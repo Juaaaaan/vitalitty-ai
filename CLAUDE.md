@@ -90,13 +90,15 @@ Known deltas and open items, so nobody documents them as done:
 - `/login` → Supabase email/password auth
 - `/dashboard` → Patient list with TanStack React Table CRUD
 - `/dashboard/calendar` → Monthly appointments calendar (async server component)
-- `/dashboard/patient/[id]` → Patient detail: data, an evolution chart (target kcal as bars + weight as a line, one axis each, one point per consultation) and the consultation history. Weight is stored per consultation in `patient_consultations.weight`; `patients.weight` only holds the latest known value
+- `/dashboard/patient/[id]` → Patient detail: data, an evolution chart (target kcal as bars + weight as a line, one axis each, one point per consultation) and the consultation history. Weight is stored per consultation in `patient_consultations.weight`; `patients.weight` only holds the latest known value. Below it: portions per food group across diet versions, and "Comparar dietas": pick a version N and see it against N-1 (kcal, weight, portions with Δ, foods in/out, AI summary of what changed and why). Consecutive pairs only; no macros — diets prescribe portions, not macro grams
 - `/diets` → Choose new/existing patient → audio recording → transcription → diet generation → save consultation. Recording stays disabled until the patient choice is complete; the patient is never guessed from the transcription
 
 ### Route handlers
 
 - `POST /api/transcribe` — multipart `audio` file → `{ text }`. Thin layer over `transcribeAudio()`: model, language and the 10 MB input cap live in the service, not here. `413` when the audio exceeds the cap, `400` with no audio, `500` on provider failure — every error body carries `error`, because the client reads it before looking at the status.
 - `POST /api/process-consultation` — `{ transcription, patientMode: "new" | "existing", patientId? }` → NDJSON stream of `thinking` / `text` / `error` / `done` events. `400` on missing/invalid mode or `existing` without id; `404` when the patient isn't the user's — both before any model call. For `existing` it loads the patient memory (`src/services/patient-context-service.ts`: card with the latest known clinical values + summaries of the last 3 diets + last full diet) and injects it after the cached static block, before the transcription; `new` gets no memory and always creates a patient row (no email matching). Generation and extraction run in parallel; the consultation is inserted only when the stream closes cleanly, with the extraction's `consultation_summary` and the weight dictated in it (`null` if none — never copied from the patient), and `done` carries `consultationId` and `dietVersion` (assigned by a DB trigger, 1 for a new patient, N+1 otherwise). `maxDuration = 60`.
+- `POST /api/diet-portions` — `{ patientId }` → `{ portions: [{ consultationId, dietVersion, createdAt, portions }], failed: [consultationId] }`. Projects (once, extraction model, 4 in parallel, each saved as it finishes) the portions of every diet of the patient that lacks `diet_portions` or has an older format version. Never returns `diet_md`. `400` without id, `404` when the patient isn't the user's. The patient page only calls it when some diet is missing portions. `maxDuration = 60`.
+- `POST /api/compare-diets` — `{ consultationId }` → `{ previous, current, portions, added, removed, summary }`. Compares diet N with the previous existing version of the same patient. The result is cached in `diet_changes` of row N and reused while `previousConsultationId` still matches; never generates or edits a diet. "Why" comes from N's transcription (fallback: its `consultation_summary`; with neither, the summary says the reason is not recorded). `400` without id, `404` for someone else's / missing / diet-less consultation, `409` for a first diet, `500` on model failure — all with `error` in Spanish. `maxDuration = 60`.
 - `POST /api/upload-diet` — `{ consultationId, patientId, dietMd }` → `{ success, url?, error? }`. Uploads to the private `diets` bucket, stores the file **path** in `patient_consultations.documento_url` (the column name is legacy; it holds a path, not a URL) and returns a 1 h signed URL. `404` when the consultation isn't the user's.
 
 ### Server vs Client split
@@ -129,7 +131,7 @@ src/
     ui/             # shadcn/ui primitives (do not edit manually — use CLI)
     layout/         # App shell: sidebar, login form, theme toggle
     audio/          # Audio recorder + transcription display
-    patients/       # Patient picker (keyed by id, shows contact to tell namesakes apart)
+    patients/       # Patient picker (keyed by id, shows contact to tell namesakes apart), diet comparison, portions chart
     calendar/       # Calendar client component
   services/         # Business logic: transcription, diet generation, extraction, calendar
   models/           # TypeScript types (audio, calendar, dashboard, extraction)

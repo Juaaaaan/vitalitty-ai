@@ -1,0 +1,12 @@
+{
+  "withReason": {
+    "added": ["copos de avena", "canela"],
+    "removed": ["pan blanco", "aceite de oliva", "tomate"],
+    "summary": "Se redujo la cantidad de hidratos en la cena de 30 gr a 20 gr (o de 180 gr a 120 gr de patata) para favorecer la pérdida de peso, que se ha estancado en los últimos 30 días. El pan blanco del desayuno fue sustituido por copos de avena con canela porque le causaba hinchazón al paciente. Se especificó el yogur como sin azúcar, manteniendo la misma estructura general de comidas."
+  },
+  "withoutReason": {
+    "added": ["copos de avena", "canela"],
+    "removed": ["pan blanco", "aceite de oliva", "tomate"],
+    "summary": "Se cambió el desayuno de pan blanco con aceite y tomate por copos de avena con canela. Se modificó el yogur especificando que sea sin azúcar. Las cantidades de hidratos en cena se redujeron de 30 gr a 20 gr (o de 180 gr a 120 gr de patata). En la consulta no consta el motivo de estos cambios."
+  }
+}

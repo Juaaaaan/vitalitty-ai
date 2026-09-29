@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildEvolutionData } from "../patient-evolution-service";
+import {
+  buildEvolutionData,
+  buildPortionsSeries,
+} from "../patient-evolution-service";
+import type {
+  PortionEntry,
+  PortionGroup,
+} from "@/models/diet-comparison/diet-comparison.models";
 
 describe("buildEvolutionData", () => {
   it("un punto por consulta con kcal y peso, en orden cronológico", () => {
@@ -67,5 +74,83 @@ describe("buildEvolutionData", () => {
     expect(
       buildEvolutionData([{ created_at: "2026-01-01T10:00:00Z" }]),
     ).toEqual([]);
+  });
+});
+
+describe("buildPortionsSeries", () => {
+  const entry = (
+    group: PortionGroup,
+    min: number,
+    max = min,
+  ): PortionEntry => ({
+    group,
+    label: group,
+    min,
+    max,
+    unit: group === "verdura" ? "ml" : "g",
+    alternatives: "",
+  });
+  const diet = (dietVersion: number, ...groups: PortionEntry[]) => ({
+    dietVersion,
+    createdAt: `2026-0${dietVersion}-01T10:00:00Z`,
+    portions: { version: 1, groups },
+  });
+
+  it("un punto por dieta en orden de versión", () => {
+    const series = buildPortionsSeries([
+      diet(2, entry("hidrato_cena", 20)),
+      diet(1, entry("hidrato_cena", 30)),
+    ]);
+
+    expect(series.points.map((p) => p.hidrato_cena__g)).toEqual([30, 20]);
+    expect(series.points[0].label).toMatch(/^v1 · /);
+  });
+
+  it("rango: el punto va en el centro y el rango se conserva", () => {
+    const series = buildPortionsSeries([diet(1, entry("verdura", 150, 200))]);
+
+    expect(series.points[0].verdura__ml).toBe(175);
+    expect(series.entries[0].verdura__ml).toMatchObject({
+      min: 150,
+      max: 200,
+      unit: "ml",
+    });
+  });
+
+  it("grupo que una dieta no pauta: sin punto en esa dieta", () => {
+    const series = buildPortionsSeries([
+      diet(1, entry("hidrato_cena", 30)),
+      diet(2, entry("hidrato_cena", 20), entry("grasas", 10)),
+    ]);
+
+    expect(series.points[0]).not.toHaveProperty("grasas__g");
+    expect(series.points[1].grasas__g).toBe(10);
+    expect(series.lines.map((l) => l.group)).toEqual([
+      "hidrato_cena",
+      "grasas",
+    ]);
+  });
+
+  it("sin dietas: serie vacía", () => {
+    expect(buildPortionsSeries([])).toEqual({
+      points: [],
+      lines: [],
+      entries: [],
+    });
+  });
+
+  it("mismo grupo en otra unidad: otra línea, nunca unida a la primera", () => {
+    const series = buildPortionsSeries([
+      diet(1, { ...entry("pan", 2), unit: "ud" }),
+      diet(2, entry("pan", 40)),
+    ]);
+
+    expect(series.lines.map((l) => [l.key, l.unit])).toEqual([
+      ["pan__g", "g"],
+      ["pan__ud", "ud"],
+    ]);
+    expect(series.points[0]).toMatchObject({ pan__ud: 2 });
+    expect(series.points[0]).not.toHaveProperty("pan__g");
+    expect(series.points[1]).toMatchObject({ pan__g: 40 });
   });
 });
