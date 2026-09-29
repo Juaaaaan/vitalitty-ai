@@ -8,7 +8,7 @@ Produce el documento de dieta de un paciente a partir de la transcripción de su
 
 ### Requirement: Generación del documento en una sola pasada
 
-El sistema SHALL producir el documento de dieta en una única llamada de generación que reciba en contexto, en este orden: las instrucciones con las reglas nutricionales, al menos una dieta real completa como ejemplo, el contexto del paciente, y la transcripción de la consulta.
+El sistema SHALL producir el documento de dieta en una única llamada de generación que reciba en contexto, en este orden: las instrucciones con las reglas nutricionales, al menos una dieta real completa como ejemplo, el contexto del paciente, y **lo dicho para esta dieta**: la transcripción de la consulta, o bien una instrucción en lenguaje natural con el retoque pedido cuando la generación no nace de una consulta grabada. Ambas entradas SHALL producir un documento que cumpla el mismo contrato; una instrucción NO SHALL relajar ninguna regla del documento.
 
 La salida SHALL ser el documento de dieta en markdown, ya formateado y listo para mostrar, sin pasos intermedios de extracción a estructura fija ni relleno de plantilla.
 
@@ -37,6 +37,12 @@ inventado.
 - **AND** empieza por el frontmatter con `paciente`, `version`, `proxima_revision` y `calorias`
 - **AND** sus secciones son las del contrato, en el orden del contrato
 - **AND** el contenido refleja lo dicho en la transcripción, no valores de relleno
+
+#### Scenario: Retoque pedido como instrucción
+
+- **WHEN** se solicita la generación para un paciente con dieta anterior dando una instrucción en lenguaje natural en lugar de una transcripción
+- **THEN** el documento resultante parte de la dieta anterior y aplica solo lo pedido
+- **AND** cumple el mismo contrato, con el mismo frontmatter y las mismas secciones
 
 #### Scenario: La consulta no encaja en la estructura habitual
 
