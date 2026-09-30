@@ -1,0 +1,166 @@
+# diet-generation Specification
+
+## Purpose
+
+Produce el documento de dieta de un paciente a partir de la transcripción de su consulta, en una sola pasada y con dietas reales de ejemplo en contexto, y lo entrega a pantalla conforme se genera. El documento markdown resultante es la fuente de verdad de la dieta.
+
+## Requirements
+
+### Requirement: Generación del documento en una sola pasada
+
+El sistema SHALL producir el documento de dieta en una única llamada de generación que reciba en contexto, en este orden: las instrucciones con las reglas nutricionales, al menos una dieta real completa como ejemplo, el contexto del paciente, y **lo dicho para esta dieta**: la transcripción de la consulta, o bien una instrucción en lenguaje natural con el retoque pedido cuando la generación no nace de una consulta grabada. Ambas entradas SHALL producir un documento que cumpla el mismo contrato; una instrucción NO SHALL relajar ninguna regla del documento.
+
+La salida SHALL ser el documento de dieta en markdown, ya formateado y listo para mostrar, sin pasos intermedios de extracción a estructura fija ni relleno de plantilla.
+
+La estructura del documento generado SHALL ajustarse al contrato del documento de
+dieta: un frontmatter con `paciente`, `version`, `proxima_revision` y `calorias`,
+seguido de las secciones `## Objetivos`, `## Suplementación`, `## Cantidades`,
+`## Pre/Post-entreno`, `## Plan semanal` y `## Observaciones`, en ese orden, con los
+días o turnos del plan semanal como subsecciones y sus comidas marcadas como
+`**COMIDA**`, `**MERIENDA**` y `**CENA**`.
+
+El documento NO SHALL incluir gramos de macronutrientes: las cantidades se expresan
+por grupo de alimento.
+
+Las dietas de ejemplo que entran en contexto SHALL cumplir ese mismo contrato: el
+documento generado se parece a los ejemplos, así que un ejemplo que no lo cumpla
+produce salidas que la plantilla no reconoce.
+
+El sistema NO SHALL emitir secciones ajenas al contrato. Una sección del contrato
+que la consulta no justifique SHALL omitirse en lugar de rellenarse con contenido
+inventado.
+
+#### Scenario: Consulta transcrita de un paciente nuevo
+
+- **WHEN** se solicita la generación para una transcripción de consulta y un paciente sin dieta anterior
+- **THEN** el sistema devuelve un documento de dieta en markdown
+- **AND** empieza por el frontmatter con `paciente`, `version`, `proxima_revision` y `calorias`
+- **AND** sus secciones son las del contrato, en el orden del contrato
+- **AND** el contenido refleja lo dicho en la transcripción, no valores de relleno
+
+#### Scenario: Retoque pedido como instrucción
+
+- **WHEN** se solicita la generación para un paciente con dieta anterior dando una instrucción en lenguaje natural en lugar de una transcripción
+- **THEN** el documento resultante parte de la dieta anterior y aplica solo lo pedido
+- **AND** cumple el mismo contrato, con el mismo frontmatter y las mismas secciones
+
+#### Scenario: La consulta no encaja en la estructura habitual
+
+- **WHEN** la transcripción describe un caso que no cubre alguna sección del contrato
+- **THEN** el documento omite esa sección en lugar de rellenarla con contenido
+  inventado
+- **AND** no introduce secciones fuera del contrato para encajar el caso
+
+#### Scenario: Plan por turnos
+
+- **WHEN** la consulta describe un plan organizado por turnos y no por días de la semana
+- **THEN** las subsecciones del plan semanal se encabezan como turnos
+- **AND** el frontmatter no cambia por ello
+
+#### Scenario: La dieta no prescribe macronutrientes
+
+- **WHEN** se genera cualquier documento de dieta
+- **THEN** las cantidades aparecen por grupo de alimento
+- **AND** el documento no contiene gramos de macronutrientes ni un campo de macros
+  en el frontmatter
+
+### Requirement: Entrega en streaming
+
+El sistema SHALL entregar el documento a la pantalla de forma incremental, conforme se genera, sin esperar a que la generación termine.
+
+El primer fragmento de texto SHALL aparecer en pantalla en pocos segundos desde que se lanza la generación. El usuario SHALL poder leer el documento mientras se escribe.
+
+#### Scenario: El usuario lanza la generación
+
+- **WHEN** el usuario confirma el paciente y lanza la generación
+- **THEN** en pocos segundos empieza a aparecer texto en pantalla
+- **AND** el documento sigue creciendo de forma visible hasta completarse
+
+#### Scenario: La generación falla a mitad
+
+- **WHEN** la generación se interrumpe después de haber emitido texto
+- **THEN** el usuario ve un error explicando que la dieta quedó incompleta
+- **AND** el texto ya emitido permanece visible en lugar de desaparecer
+
+### Requirement: Las revisiones editan la dieta anterior
+
+Cuando el paciente ya tiene una dieta anterior, el sistema SHALL incluirla en el contexto de la generación, junto con la memoria del paciente (ficha y resúmenes de sus consultas recientes), e instruir al modelo para que **edite** la dieta anterior según lo dicho en la consulta, conservando lo que no se cuestiona.
+
+Una revisión SHALL preservar las partes de la dieta anterior que la transcripción no menciona, y SHALL respetar las intolerancias, alergias y preferencias conocidas del paciente que la transcripción no retire. No SHALL regenerarse el documento en frío ignorando la dieta previa ni la memoria del paciente.
+
+La existencia de dieta anterior SHALL determinarse por el paciente elegido explícitamente por el usuario, nunca por coincidencias en la transcripción.
+
+#### Scenario: Revisión que cambia una sola cosa
+
+- **WHEN** se genera la dieta de un paciente con dieta anterior y la transcripción solo habla de subir la proteína
+- **THEN** el documento resultante refleja ese cambio
+- **AND** el resto del plan se mantiene reconocible respecto a la dieta anterior
+
+#### Scenario: Revisión que no repite restricciones conocidas
+
+- **WHEN** se genera la dieta de un paciente existente con alergia a los frutos secos registrada y la transcripción no la menciona
+- **THEN** el documento resultante no incluye frutos secos
+
+#### Scenario: Primera consulta del paciente
+
+- **WHEN** el paciente no tiene ninguna dieta anterior registrada
+- **THEN** la generación procede sin bloque de dieta previa y produce el documento desde cero
+
+### Requirement: Orden del prompt y caché del bloque estático
+
+El contenido que no varía entre consultas — instrucciones y dietas de ejemplo — SHALL ocupar el principio del prompt y SHALL marcarse para caché. El contenido específico de la consulta — contexto del paciente y transcripción — SHALL ir después, fuera del prefijo cacheado.
+
+El bloque estático SHALL ser idéntico byte a byte entre peticiones. No SHALL contener marcas de tiempo, identificadores de petición, ni ningún valor que cambie entre llamadas.
+
+#### Scenario: Segunda generación dentro de la ventana de caché
+
+- **WHEN** se lanza una generación y poco después otra distinta
+- **THEN** la segunda reutiliza el bloque estático desde caché en lugar de volver a facturarlo íntegro
+
+#### Scenario: Cambia el contexto del paciente
+
+- **WHEN** dos generaciones consecutivas son de pacientes distintos
+- **THEN** el bloque estático se sigue sirviendo desde caché
+- **AND** solo el contexto de paciente y la transcripción se facturan como entrada nueva
+
+### Requirement: Persistencia al cerrar el stream
+
+Al completarse la generación, el sistema SHALL guardar la consulta con el documento generado, su número de versión dentro del paciente y, si está disponible, el resumen breve de la consulta, sin intervención del usuario.
+
+Si la generación falla antes de completarse, no SHALL guardarse una consulta con una dieta incompleta ni SHALL consumirse un número de versión.
+
+La subida del documento a almacenamiento de ficheros SHALL seguir siendo una acción explícita del usuario, independiente de este guardado.
+
+#### Scenario: Generación completada
+
+- **WHEN** el stream se cierra con el documento completo
+- **THEN** queda registrada una consulta con la transcripción, el documento de dieta, su versión y su resumen
+- **AND** el usuario ve en pantalla la versión de la dieta guardada
+- **AND** el usuario puede a continuación subir el documento a almacenamiento como paso aparte
+
+#### Scenario: Generación interrumpida
+
+- **WHEN** la generación falla antes de completarse
+- **THEN** no queda registrada ninguna consulta con dieta parcial
+- **AND** la siguiente dieta completada de ese paciente recibe el número de versión que habría tenido la interrumpida
+
+### Requirement: Las dietas de ejemplo viven en el código
+
+Las dietas de ejemplo que entran en contexto SHALL estar disponibles sin acceso al sistema de ficheros en tiempo de ejecución.
+
+Añadir una dieta de ejemplo más NO SHALL requerir cambiar la forma del prompt ni la lógica de generación.
+
+Toda dieta de ejemplo SHALL cumplir el contrato del documento de dieta antes de
+entrar en contexto: el modelo copia su estructura, así que un ejemplo que no lo
+cumpla produce salidas que la plantilla no reconoce.
+
+#### Scenario: Ejecución en entorno sin filesystem
+
+- **WHEN** la generación se ejecuta en el entorno serverless de despliegue
+- **THEN** las dietas de ejemplo están disponibles en contexto sin leer ningún fichero en runtime
+
+#### Scenario: Se añade una segunda dieta de ejemplo
+
+- **WHEN** se incorpora otra dieta real al conjunto de ejemplos
+- **THEN** entra en el bloque estático junto a las existentes sin modificar la lógica de generación
+- **AND** la dieta incorporada cumple el contrato del documento de dieta

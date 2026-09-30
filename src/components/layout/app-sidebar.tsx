@@ -1,0 +1,97 @@
+"use client";
+
+import * as React from "react";
+import { Bot, CalendarDays, SquareTerminal } from "lucide-react";
+import { NavMain } from "@/components/layout/nav/nav-main";
+import { NavUser } from "@/components/layout/nav/nav-user";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+import { supabase } from "../../../lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+
+// This is sample data.
+const data = {
+  user: {
+    name: "Jesús",
+    email: "jesus@vitalitty.com",
+    avatar: "/logo_azul.png",
+  },
+  navMain: [
+    {
+      title: "Pacientes",
+      url: "#",
+      icon: SquareTerminal,
+      isActive: true,
+      items: [
+        {
+          title: "Resumen global",
+          url: "/dashboard",
+        },
+        {
+          title: "Creación de dietas",
+          url: "/diets",
+        },
+      ],
+    },
+    {
+      title: "Asistente",
+      url: "#",
+      icon: Bot,
+      items: [
+        {
+          title: "Preguntar",
+          url: "/asistente",
+        },
+      ],
+    },
+    {
+      title: "Agenda",
+      url: "#",
+      icon: CalendarDays,
+      items: [
+        {
+          title: "Calendario",
+          url: "/dashboard/calendar",
+        },
+      ],
+    },
+  ],
+};
+
+const goToPage = async (page: string, router: AppRouterInstance) => {
+  if (page === "logout") {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+};
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  console.log("props", props);
+  const router = useRouter();
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader className="flex flex-row items-center justify-between p-2">
+        <ThemeToggle />
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={data.navMain} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser
+          user={data.user}
+          goToProfile={() => goToPage("profile", router)}
+          closeSession={() => goToPage("logout", router)}
+        />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}

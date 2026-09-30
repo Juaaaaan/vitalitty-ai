@@ -9,9 +9,12 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+pnpm-lock.yaml
+package-lock.json
 
 # testing
 /coverage
+/html
 
 # next.js
 /.next/
@@ -23,6 +26,7 @@
 # misc
 .DS_Store
 *.pem
+*.code-workspace
 
 # debug
 npm-debug.log*
@@ -39,3 +43,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude
+.claude
+
+# playwright
+.playwright-mcp
+
+# graphify
+/graphify-out
+# Real patient documents (health data) — never commit
+/public/diets_example/
+/public/audio_example/

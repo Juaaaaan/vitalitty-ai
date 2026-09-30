@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-push checks..."
+
+# Run linting
+echo "→ Linting code..."
+npm run lint
+
+# Run tests
+echo "→ Running tests..."
+npm test
+
+echo "✓ All pre-push checks passed"

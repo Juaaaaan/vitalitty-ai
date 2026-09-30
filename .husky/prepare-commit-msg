@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# This hook is optional and can be used to prepare commit messages
+# For example: adding issue references, templates, etc.
+
+commit_msg_file=$1
+commit_source=$2
+
+# Only add template for new commits (not amends, merges, etc.)
+if [ -z "$commit_source" ]; then
+    # You can add a commit message template here if needed
+    # Example:
+    # echo -e "\n\n# Please include relevant issue references (e.g., #123)" >> "$commit_msg_file"
+    :
+fi

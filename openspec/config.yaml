@@ -1,0 +1,85 @@
+schema: spec-driven
+
+# Contexto de proyecto — se muestra a la IA al crear cualquier artefacto.
+# Fuente de verdad: openspec/project.md. CLAUDE.md lo expande, no lo contradice.
+context: |
+  Vitalitty — app de nutrición. El nutricionista graba la consulta en audio y
+  la app produce la dieta del paciente y su histórico.
+
+  Stack: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS v4 +
+  shadcn/ui (Radix) + Supabase (Postgres + Storage) + Vercel.
+
+  Modelos objetivo:
+  - Transcripción: OpenAI gpt-4o-transcribe
+  - Generación de dieta: Claude Opus
+  - Extracción de campos para BD: Claude Haiku
+
+  REGLAS DURAS — un artefacto que las incumpla está mal, no es una opción de diseño:
+
+  1. Los client components llaman a route handlers (/api/*) con fetch. NUNCA a
+     Server Actions. No proponer Server Actions nuevas.
+  2. Vercel serverless: prohibido readFileSync o cualquier dependencia de
+     filesystem en runtime. Plantillas de prompt y dietas de ejemplo van como
+     constantes o módulos TypeScript en el repo.
+  3. data y columns de useReactTable siempre con referencia estable (estado o
+     useMemo). Un array nuevo en cada render provoca un bucle infinito de renders
+     que congela la pestaña sin error ni traza. Fue la causa real del bloqueo de
+     /diets, atribuido durante un tiempo a combinar varios setState sin useTransition.
+  4. Nunca editar a mano src/components/ui/ — son ficheros generados por shadcn/ui.
+
+  ARQUITECTURA OBJETIVO — documento-primero:
+
+  La dieta se genera en UNA SOLA PASADA del modelo con dietas de ejemplo reales en
+  contexto, y se guarda como markdown. Ese markdown es la fuente de verdad; los
+  campos estructurados son una proyección ligera para consultar, comparar y graficar.
+  NO es un pipeline de extracción a JSON + rellenar plantilla: no proponer uno.
+
+  El núcleo debe comportarse como un "Proyecto" de ChatGPT/Claude. Lo que la app
+  aporta por encima es lo que un Proyecto no puede: BD por paciente, histórico,
+  comparación de dietas entre citas, gráficas.
+
+  Orden del prompt de generación, para prompt caching:
+    [estático: instrucciones + dietas de ejemplo]  <- bloque cacheado, no varía
+    [contexto de paciente]
+    [transcripción]
+  El bloque estático va primero y es el único cacheable. Todo lo específico del
+  paciente va después, o la caché no sirve de nada.
+
+  ESTADO ACTUAL vs OBJETIVO (no documentar como hecho lo que no lo está):
+  - Transcripción: cerrada (gpt-4o-transcribe, cambio archivado).
+  - Generación y extracción: cerradas (cambio 2026-09-28-single-pass-diet-generation).
+    Opus en streaming con bloque cacheado; Haiku en paralelo. Queda abierta la medición
+    en navegador del tiempo hasta el primer token (tarea 8.2 de ese cambio).
+  - app/actions/ ya no existe: save-consultation se retiró y upload-diet pasó a
+    POST /api/upload-diet. No crear Server Actions nuevas.
+  - El audio no se guarda: se transcribe y se descarta. Solo se persiste la
+    transcripción. Storage tiene un único bucket privado, diets.
+
+  Idioma: los artefactos de OpenSpec se escriben en español. Código, identificadores
+  y mensajes de commit, en inglés.
+
+# Reglas por artefacto.
+rules:
+  proposal:
+    - "Indica siempre qué regla dura o qué parte de la arquitectura objetivo motiva o restringe el cambio, si alguna aplica."
+    - "Si el cambio toca Storage, indica el bucket, si es privado y qué políticas lo protegen. Son datos de salud: nada de URLs públicas."
+  specs:
+    - "Especifica comportamiento observable, no la elección de modelo ni el proveedor. El modelo concreto es una decisión de diseño, no un requisito."
+    - "Los mensajes de error que ve el usuario son en español y deben decir qué hacer."
+  design:
+    - "Toda decisión lleva su alternativa descartada y el motivo del descarte."
+    - "Si la decisión toca prompts, indica dónde cae el corte de la caché y por qué el bloque estático va primero."
+    - "Señala explícitamente cualquier restricción de Vercel serverless que condicione el enfoque (filesystem, tamaño de body, tiempo de ejecución)."
+  tasks:
+    - "Cada tarea indica cómo se verifica, con un test, un comando, un comportamiento observable o un artefacto entregado."
+    - "Las tareas que cambian comportamiento del cliente se verifican en el navegador, no solo con tests unitarios."
+
+# Guía por operación.
+operations:
+  apply:
+    guidance:
+      - "Ejecuta npm run lint y npm run test antes de dar por cerrado un grupo de tareas."
+      - "No amplíes el alcance a ficheros que el cambio no declara afectados."
+  archive:
+    guidance:
+      - "Antes de archivar, comprueba que CLAUDE.md y openspec/project.md siguen coincidiendo con el estado real tras el cambio, y actualiza la sección Current state vs target si algún delta se ha cerrado."
