@@ -10,38 +10,38 @@
 
 ## 2. Semilla de los prompts actuales
 
-- [ ] 2.1 Extraer las instrucciones de generación hoy embebidas en `src/services/diet-generation-service.ts` a `DEFAULT_PROMPTS` en `src/constants/` (sin cambiar su texto) y verificar con un test que el bloque estático compuesto es idéntico byte a byte al anterior al cambio
+- [x] 2.1 Extraer las instrucciones de generación hoy embebidas en `src/services/diet-generation-service.ts` a `DEFAULT_PROMPTS` en `src/constants/` (sin cambiar su texto) y verificar con un test que el bloque estático compuesto es idéntico byte a byte al anterior al cambio
 - [ ] 2.2 Escribir `scripts/seed-prompts.ts` que inserte un prompt por tipo con su versión 1 activa tomando el contenido **de esas constantes**, no de una copia pegada, y verificar que tras ejecutarlo `prompt_versiones.contenido` de la versión activa coincide carácter a carácter con la constante
-- [ ] 2.3 Añadir un test que falle si `DEFAULT_PROMPTS` queda vacío o pierde un tipo, para que el fallback no desaparezca por descuido en un refactor posterior
+- [x] 2.3 Añadir un test que falle si `DEFAULT_PROMPTS` queda vacío o pierde un tipo, para que el fallback no desaparezca por descuido en un refactor posterior
 
 ## 3. Endpoints de prompts
 
-- [ ] 3.1 Implementar `GET /api/prompts` (lista con la versión activa de cada prompt, solo los del usuario de la sesión) y verificar con un test de ruta que un prompt de otro usuario no aparece y que sin sesión responde `401`
-- [ ] 3.2 Implementar `GET /api/prompts/[id]/versiones` (histórico ordenado con número, fecha y nota) y verificar con un test que un `id` ajeno responde `404` y no filtra contenido
-- [ ] 3.3 Implementar `POST /api/prompts/[id]/versiones` (crea versión, **no** activa; nota de cambio opcional; rechaza contenido vacío y contenido idéntico al de la versión activa con un mensaje en español) y verificar con tests que la versión activa no cambia y que los dos rechazos devuelven `400` con `error`
-- [ ] 3.4 Implementar `POST /api/prompts/[id]/activar` (mueve `version_activa_id`, registra la fecha de activación, rechaza una versión que no pertenezca a ese prompt o a otro usuario) y verificar con tests el camino bueno y los dos rechazos
-- [ ] 3.5 Añadir un test que recorra crear versión → activar → restaurar y compruebe que restaurar crea una versión nueva con el contenido antiguo, no reutiliza un número y deja el histórico intacto
+- [x] 3.1 Implementar `GET /api/prompts` (lista con la versión activa de cada prompt, solo los del usuario de la sesión) y verificar con un test de ruta que un prompt de otro usuario no aparece y que sin sesión responde `401`
+- [x] 3.2 Implementar `GET /api/prompts/[id]/versiones` (histórico ordenado con número, fecha y nota) y verificar con un test que un `id` ajeno responde `404` y no filtra contenido
+- [x] 3.3 Implementar `POST /api/prompts/[id]/versiones` (crea versión, **no** activa; nota de cambio opcional; rechaza contenido vacío y contenido idéntico al de la versión activa con un mensaje en español) y verificar con tests que la versión activa no cambia y que los dos rechazos devuelven `400` con `error`
+- [x] 3.4 Implementar `POST /api/prompts/[id]/activar` (mueve `version_activa_id`, registra la fecha de activación, rechaza una versión que no pertenezca a ese prompt o a otro usuario) y verificar con tests el camino bueno y los dos rechazos
+- [x] 3.5 Añadir un test que recorra crear versión → activar → restaurar y compruebe que restaurar crea una versión nueva con el contenido antiguo, no reutiliza un número y deja el histórico intacto
 
 ## 4. Endpoints de documentos
 
-- [ ] 4.1 Implementar `GET /api/documentos` con filtro por `tipo` y por etiqueta, y verificar con tests que el filtro combinado devuelve lo esperado y que no aparecen documentos de otro usuario
-- [ ] 4.2 Implementar `POST /api/documentos` (crea documento con metadata y su versión 1) revalidando en servidor que el contenido es markdown y no está vacío, y verificar con tests que un contenido no-markdown y uno vacío se rechazan con `400` y mensaje en español, sin crear nada
-- [ ] 4.3 Implementar `GET /api/documentos/[id]/versiones` y `POST /api/documentos/[id]/versiones` con la misma mecánica que los prompts, y verificar con tests que crear versión no activa y que la validación de markdown también se aplica aquí
-- [ ] 4.4 Implementar `POST /api/documentos/[id]/activar` y la edición de metadata (`tipo`, `tags`, `siempre_incluir`) **sin** crear versión de contenido, y verificar con tests que cambiar etiquetas no toca `documento_versiones`
+- [x] 4.1 Implementar `GET /api/documentos` con filtro por `tipo` y por etiqueta, y verificar con tests que el filtro combinado devuelve lo esperado y que no aparecen documentos de otro usuario
+- [x] 4.2 Implementar `POST /api/documentos` (crea documento con metadata y su versión 1) revalidando en servidor que el contenido es markdown y no está vacío, y verificar con tests que un contenido no-markdown y uno vacío se rechazan con `400` y mensaje en español, sin crear nada
+- [x] 4.3 Implementar `GET /api/documentos/[id]/versiones` y `POST /api/documentos/[id]/versiones` con la misma mecánica que los prompts, y verificar con tests que crear versión no activa y que la validación de markdown también se aplica aquí
+- [x] 4.4 Implementar `POST /api/documentos/[id]/activar` y la edición de metadata (`tipo`, `tags`, `siempre_incluir`) **sin** crear versión de contenido, y verificar con tests que cambiar etiquetas no toca `documento_versiones`
 
 ## 5. Retrieval
 
-- [ ] 5.1 Implementar `src/services/brain-retrieval-service.ts`: prompt activo por tipo + documentos por `tipo`/`tags` cruzados con el perfil del paciente + los de `siempre_incluir`, en una sola query con `JOIN` a la versión activa, deduplicados y ordenados por `slug`; verificar con tests que un documento sin versión activa no entra, que uno que encaja por dos criterios aparece una vez y que el orden es estable entre llamadas
-- [ ] 5.2 Implementar el fallback: sin versión activa, con error de query o al agotar su presupuesto de tiempo, devuelve `DEFAULT_PROMPTS` y ningún documento, y registra en el servidor que se usó el camino degradado; verificar con tests que simulen error y timeout de la query que la función resuelve en lugar de lanzar
-- [ ] 5.3 Añadir un test que compruebe que el resultado del retrieval no contiene timestamps, ids ni números de versión — solo contenido —, porque cualquiera de ellos rompería la caché de prefijo
-- [ ] 5.4 Verificar con un test que el retrieval ejecutado con el cliente de un usuario no devuelve prompts ni documentos de otro, ni los marcados `siempre_incluir`
+- [x] 5.1 Implementar `src/services/brain-retrieval-service.ts`: prompt activo por tipo + documentos por `tipo`/`tags` cruzados con el perfil del paciente + los de `siempre_incluir`, en una sola query con `JOIN` a la versión activa, deduplicados y ordenados por `slug`; verificar con tests que un documento sin versión activa no entra, que uno que encaja por dos criterios aparece una vez y que el orden es estable entre llamadas
+- [x] 5.2 Implementar el fallback: sin versión activa, con error de query o al agotar su presupuesto de tiempo, devuelve `DEFAULT_PROMPTS` y ningún documento, y registra en el servidor que se usó el camino degradado; verificar con tests que simulen error y timeout de la query que la función resuelve en lugar de lanzar
+- [x] 5.3 Añadir un test que compruebe que el resultado del retrieval no contiene timestamps, ids ni números de versión — solo contenido —, porque cualquiera de ellos rompería la caché de prefijo
+- [x] 5.4 Verificar con un test que el retrieval ejecutado con el cliente de un usuario no devuelve prompts ni documentos de otro, ni los marcados `siempre_incluir`
 
 ## 6. Integración con la generación
 
-- [ ] 6.1 Componer el bloque estático en `src/services/diet-generation-service.ts` como prompt activo → documentos seleccionados → dietas de ejemplo, con el contrato del documento concatenado siempre después del prompt activo como parte no editable, y verificar con un test que el orden es ese y que el contrato está presente aunque el prompt activo no lo mencione
-- [ ] 6.2 Llamar al retrieval desde `app/api/process-consultation/` antes de la primera llamada al modelo, con el cliente Supabase de la sesión, y verificar con un test de ruta que el conjunto se resuelve una sola vez por petición
-- [ ] 6.3 Verificar con un test que el bloque estático generado con el Cerebro sembrado es idéntico byte a byte al que producía el código antes del change (la comprobación que hace válida la semilla)
-- [ ] 6.4 Actualizar `src/services/__tests__/diet-contract-sync.test.ts` o añadir el equivalente para que la alarma de desincronización del contrato siga valiendo ahora que las instrucciones pueden venir de la BD, y verificar que el test falla si el contrato deja de concatenarse
+- [x] 6.1 Componer el bloque estático en `src/services/diet-generation-service.ts` como prompt activo → documentos seleccionados → dietas de ejemplo, con el contrato del documento concatenado siempre después del prompt activo como parte no editable, y verificar con un test que el orden es ese y que el contrato está presente aunque el prompt activo no lo mencione
+- [x] 6.2 Llamar al retrieval desde `app/api/process-consultation/` antes de la primera llamada al modelo, con el cliente Supabase de la sesión, y verificar con un test de ruta que el conjunto se resuelve una sola vez por petición
+- [x] 6.3 Verificar con un test que el bloque estático generado con el Cerebro sembrado es idéntico byte a byte al que producía el código antes del change (la comprobación que hace válida la semilla)
+- [x] 6.4 Actualizar `src/services/__tests__/diet-contract-sync.test.ts` o añadir el equivalente para que la alarma de desincronización del contrato siga valiendo ahora que las instrucciones pueden venir de la BD, y verificar que el test falla si el contrato deja de concatenarse
 - [ ] 6.5 Medir en navegador una generación completa con el Cerebro sembrado y anotar el tiempo frente a los 59,6 s del peor caso conocido, para saber cuánto margen consume el retrieval dentro de `maxDuration = 60`
 
 ## 7. UI — pestaña Prompts

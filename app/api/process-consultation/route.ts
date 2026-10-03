@@ -6,6 +6,7 @@ import {
   type ExtractionResult,
 } from "@/services/consultation-extraction-service";
 import { loadPatientMemory } from "@/services/patient-context-service";
+import { loadBrainContext } from "@/services/brain-retrieval-service";
 import type {
   PatientMemory,
   PatientMode,
@@ -92,6 +93,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // El Cerebro se lee una sola vez, aquí, antes de llamar al modelo: el prompt
+  // activo y los documentos que apliquen a este paciente. El conjunto queda
+  // congelado para toda la generación, así que activar una versión a mitad no
+  // la afecta. Si el Cerebro está vacío o no responde, esto devuelve los valores
+  // por defecto del código en lugar de fallar.
+  const { brain, degraded, reason } = await loadBrainContext(supabase, {
+    memory,
+  });
+
+  if (degraded) {
+    console.warn("Generating with the code defaults:", reason);
+  }
+
   // La extracción arranca ya y corre de fondo: el documento no la espera.
   // Solo se recoge al cerrar el stream, justo antes de escribir en base de datos.
   const extractionPromise: Promise<ExtractionResult | null> =
@@ -113,6 +127,7 @@ export async function POST(request: NextRequest) {
         for await (const event of streamDietGeneration({
           transcription,
           memory,
+          brain,
         })) {
           if (event.type === "text") {
             dietMarkdown += event.text;

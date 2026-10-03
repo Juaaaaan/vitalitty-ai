@@ -5,6 +5,7 @@ const {
   streamDietGeneration,
   extractConsultationData,
   loadPatientMemory,
+  loadBrainContext,
   createClient,
   supabase,
 } = vi.hoisted(() => {
@@ -16,6 +17,7 @@ const {
     streamDietGeneration: vi.fn(),
     extractConsultationData: vi.fn(),
     loadPatientMemory: vi.fn(),
+    loadBrainContext: vi.fn(),
     createClient: vi.fn(async () => supabase),
     supabase,
   };
@@ -26,6 +28,7 @@ vi.mock("@/services/consultation-extraction-service", () => ({
   extractConsultationData,
 }));
 vi.mock("@/services/patient-context-service", () => ({ loadPatientMemory }));
+vi.mock("@/services/brain-retrieval-service", () => ({ loadBrainContext }));
 vi.mock("../../../../lib/supabase/server", () => ({ createClient }));
 
 import { POST } from "../route";
@@ -45,6 +48,12 @@ const MEMORY = {
   clinical: { alergias_intolerancias: ["lactosa"] },
   summaries: [],
   lastDietMd: "# Dieta anterior",
+};
+
+/** Lo que el retrieval resuelve: prompt activo y documentos seleccionados. */
+const BRAIN = {
+  promptContent: "Prompt activo",
+  documents: [{ titulo: "Protocolo", contenidoMd: "# Protocolo" }],
 };
 
 const NEW = { transcription: "consulta", patientMode: "new" };
@@ -98,6 +107,7 @@ describe("POST /api/process-consultation", () => {
     supabase.auth.getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
     supabase.from.mockImplementation(() => stubTable());
     loadPatientMemory.mockResolvedValue(MEMORY);
+    loadBrainContext.mockResolvedValue({ brain: BRAIN, degraded: false });
     extractConsultationData.mockResolvedValue({
       patient: { name_surnames: "Laura Martín" },
       consultation: {
@@ -258,6 +268,33 @@ describe("POST /api/process-consultation", () => {
     expect(streamDietGeneration).toHaveBeenCalledWith({
       transcription: "consulta",
       memory: MEMORY,
+      brain: BRAIN,
+    });
+  });
+
+  it("lee el Cerebro una sola vez por petición, con la memoria del paciente", async () => {
+    await readEvents(await POST(requestWith(EXISTING)));
+
+    expect(loadBrainContext).toHaveBeenCalledTimes(1);
+    expect(loadBrainContext).toHaveBeenCalledWith(supabase, {
+      memory: MEMORY,
+    });
+  });
+
+  it("con el Cerebro degradado la generación sigue y la consulta se guarda", async () => {
+    loadBrainContext.mockResolvedValue({
+      brain: { promptContent: "Prompt por defecto", documents: [] },
+      degraded: true,
+      reason: "query_failed",
+    });
+
+    const events = await readEvents(await POST(requestWith(EXISTING)));
+
+    expect(events.at(-1).type).toBe("done");
+    expect(streamDietGeneration).toHaveBeenCalledWith({
+      transcription: "consulta",
+      memory: MEMORY,
+      brain: { promptContent: "Prompt por defecto", documents: [] },
     });
   });
 
@@ -286,6 +323,7 @@ describe("POST /api/process-consultation", () => {
     expect(streamDietGeneration).toHaveBeenCalledWith({
       transcription: "consulta",
       memory: null,
+      brain: BRAIN,
     });
   });
 
