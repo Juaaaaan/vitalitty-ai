@@ -56,8 +56,16 @@ caracteres con md5 `cd53639453541f910ccd0ce1d0a274b9`, idéntico al de la consta
 `DEFAULT_PROMPTS`**. Leído luego con la forma exacta de `readActivePrompt`, como
 usuario autenticado: mismo md5 y marcador del contrato presente.
 
-Si más adelante quieres ejecutar el script (para re-sembrar o con `--force`), hace
-falta añadir `SUPABASE_SERVICE_ROLE_KEY` a `.env.local`.
+`SUPABASE_SERVICE_ROLE_KEY` se añadió a `.env.local` después, y el script se
+ejecutó en seco contra la base de datos real:
+
+```
+· generacion-dieta: already seeded, left untouched
+Dry run, nothing written.
+```
+
+Es decir, es idempotente: reconoce lo ya sembrado y no duplica. Para re-sembrar
+hace falta `--force`, que añade una versión nueva y la activa, sin tocar la v1.
 
 ## ~~1. Aplicar la migración~~ (hecho, ver arriba)
 
@@ -105,17 +113,38 @@ insertar, vuelve a leer de la base de datos y aborta si lo guardado no coincide
 carácter a carácter con la constante. Si imprime `✓ generacion-dieta: v1 active
 … identical to the constant`, la tarea 2.2 está verificada.
 
-## 3. Cargar el vault (tarea 9.2)
+## 3. Cargar el vault (tarea 9.2) — en espera, a propósito
 
-Antes, arreglar lo que dice `vault-review.md` (el recetario de 141 platos). Luego:
+**Decidido el 2026-10-03: la carga espera a que la comprobación 10.1 esté hecha.**
+En cuanto el vault entre, las dietas cambian — el protocolo del editor está
+planeado como "siempre incluir" (39.506 caracteres en toda generación) y los
+demás entran en cuanto sus etiquetas (`hipertrofia`, `microbiota`, `pms`…) cruzan
+con la ficha del paciente. Cargarlo antes de 10.1 destruiría la referencia limpia
+de "una dieta como las de hoy".
 
-```bash
-SUPABASE_SERVICE_ROLE_KEY=... node --no-warnings --env-file=.env.local \
-  scripts/load-vault.ts --user <tu auth user id> --dry-run
+Orden acordado:
+
+1. Generar una dieta en `/diets` con solo el prompt sembrado y 0 documentos, y
+   confirmar que sale equivalente a las de siempre (10.1).
+2. Arreglar el recetario de 141 platos según `vault-review.md`.
+3. Cargar: `node --no-warnings --env-file=.env.local scripts/load-vault.ts --user <id>`.
+4. Generar otra vez y ver el efecto del conocimiento.
+
+La prueba en seco ya corrió contra la base de datos real y hace lo previsto:
+
+```
+· Biblioteca_Maestra_Suplementacion_Vitalitty_v1.md: would load … (suplementacion, 21894 chars)
+· COMPENDIO_PUBMED_VITALITTY_01-10-2026.md: would load … (paper, 50546 chars)
+· Fuentes_cientificas_Vitalitty_01_Hipertrofia_Microbiota_Mujer.md: would load … (paper, 21870 chars)
+· PROTOCOLO_MAESTRO_PROMPTS_EDITOR_VITALITTY_v2_01-10-2026.md: would load … (protocolo, always included, 39506 chars)
+· VITALITTY_Ampliacion_Banco_Maestro_50_Platos.md: would load … (recetario, 11547 chars)
+✗ VITALITTY_Recetario_Maestro_141_Platos.md: no markdown headings; carries an <img> tag; HTML tables instead of markdown. Clean it up or re-run with --force.
+· index.md: empty, skipped
 ```
 
-El script se niega a subir un fichero que siga sin encabezados markdown, con un
-`<img>` o con tablas HTML, salvo con `--force`.
+Un detalle cosmético: los títulos salen del nombre del fichero, así que quedan
+como "COMPENDIO PUBMED VITALITTY 01 10 2026". Se pueden reescribir desde
+`/cerebro` sin crear versión, porque el título es metadata.
 
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
