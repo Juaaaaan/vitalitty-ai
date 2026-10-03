@@ -6,7 +6,7 @@
 - [ ] 1.2 Añadir en la misma migración `documentos_conocimiento` y `documento_versiones` (`slug`, `titulo`, `tipo` como enum cerrado, `tags text[]`, `siempre_incluir bool`, `version_activa_id`; versiones con `documento_id`, `version`, `contenido_md`, `created_at`, `created_by`) y verificar igual
 - [ ] 1.3 Añadir RLS `created_by = auth.uid()` en las cuatro tablas, con `INSERT`/`SELECT` en las tablas de versiones y **sin** `UPDATE` ni `DELETE`, y verificar con dos usuarios de prueba que uno no ve ni modifica las filas del otro y que un `UPDATE` sobre una versión existente es rechazado
 - [ ] 1.4 Añadir el trigger que asigna `version` como máximo del padre + 1 (mismo patrón que `diet_version`) y verificar con dos inserciones concurrentes sobre el mismo padre que no se repite ningún número
-- [ ] 1.5 Regenerar los tipos TypeScript de Supabase y verificar que `npm run build` compila con las cuatro tablas tipadas
+- [x] 1.5 Regenerar los tipos TypeScript de Supabase y verificar que `npm run build` compila con las cuatro tablas tipadas
 
 ## 2. Semilla de los prompts actuales
 
@@ -61,7 +61,7 @@
 
 ## 9. Carga del vault existente
 
-- [ ] 9.1 Revisar los ficheros de `vault/` y dejar anotado qué hay que corregir antes de cargarlos, empezando por el recetario de 141 platos que salió sucio de su conversión desde Word; verificar que la nota de revisión queda entregada en el change
+- [x] 9.1 Revisar los ficheros de `vault/` y dejar anotado qué hay que corregir antes de cargarlos, empezando por el recetario de 141 platos que salió sucio de su conversión desde Word; verificar que la nota de revisión queda entregada en el change
 - [ ] 9.2 Escribir `scripts/load-vault.ts` (nunca importado desde `app/` ni `src/`) que cree un documento por fichero con su `tipo`, sus `tags` y su versión 1 activa, y verificar tras ejecutarlo que cada fichero tiene su documento y que su contenido coincide con el del fichero
 
 ## 10. Verificación de integración
