@@ -19,7 +19,47 @@ Estado al 2026-10-03, rama `cerebro-conocimiento-dinamico`.
   `static-prompt-block.test.ts` comprueba que el prompt sembrado compone
   exactamente ese texto. Es lo que hace válida la semilla.
 
-## 1. Aplicar la migración (tareas 1.1–1.4)
+## ✅ 1. Migración aplicada y verificada (tareas 1.1–1.4)
+
+Aplicada al proyecto `vitalitty-ai` (`apijxjakeffswxpiresl`) el 2026-10-03, con
+autorización explícita, después de que la rama de Supabase resultara imposible:
+`Branching is supported only on the Pro plan or above`.
+
+Comprobado sobre la base de datos real:
+
+| Tarea     | Resultado                                                                                                                                                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1 / 1.2 | Las cuatro tablas existen con sus FK cruzadas (`version_activa_id` → tabla de versiones, y la versión → su cabecera).                                                                                                                                                                  |
+| 1.3       | Las tablas de versiones tienen **solo** `INSERT` y `SELECT`; las cabeceras, `INSERT`, `SELECT` y `UPDATE`. Como usuario autenticado: ve 1 de sus filas, 0 de las de otro `sub`, y un `update` sobre una versión propia afecta a **0 filas**.                                           |
+| 1.4       | Tres inserciones seguidas sobre el mismo padre dieron `version` 1, 2 y 3; una inserción con `version = 2` explícita fue rechazada por el índice único. La serialización de dos inserciones concurrentes descansa en el mismo `pg_advisory_xact_lock` que ya usa `assign_diet_version`. |
+
+Las pruebas corrieron dentro de un bloque que termina lanzando una excepción, así
+que se deshicieron solas: las cuatro tablas quedaron a 0 filas y las 27 consultas
+existentes intactas. Los advisors de seguridad no señalan ninguna de las tablas
+nuevas (sus dos avisos son previos: `update_updated_at_column` sin `search_path`
+y la protección de contraseñas filtradas de Auth).
+
+**Rollback**, si alguna vez hace falta:
+
+```sql
+drop table public.documento_versiones, public.documentos_conocimiento,
+           public.prompt_versiones, public.prompts cascade;
+drop type public.knowledge_document_type;
+```
+
+## ✅ 2. Prompt sembrado (tarea 2.2)
+
+`.env.local` no tiene `SUPABASE_SERVICE_ROLE_KEY`, así que `scripts/seed-prompts.ts`
+no se pudo ejecutar; se sembró por SQL con la misma comprobación que hace el
+script. La versión 1 de `generacion-dieta` está activa y su contenido mide **5846
+caracteres con md5 `cd53639453541f910ccd0ce1d0a274b9`, idéntico al de la constante
+`DEFAULT_PROMPTS`**. Leído luego con la forma exacta de `readActivePrompt`, como
+usuario autenticado: mismo md5 y marcador del contrato presente.
+
+Si más adelante quieres ejecutar el script (para re-sembrar o con `--force`), hace
+falta añadir `SUPABASE_SERVICE_ROLE_KEY` a `.env.local`.
+
+## ~~1. Aplicar la migración~~ (hecho, ver arriba)
 
 No se aplicó: el repo no trae `supabase/config.toml`, así que no hay stack local
 que levantar, y la creación de una rama de Supabase para probarla ahí quedó
@@ -51,7 +91,7 @@ Qué comprobar después:
 que regenerar**: este repo no tiene fichero de tipos generados y el cliente se
 usa sin tipar.
 
-## 2. Sembrar los prompts (tarea 2.2)
+## ~~2. Sembrar los prompts~~ (hecho, ver arriba)
 
 ```bash
 SUPABASE_SERVICE_ROLE_KEY=... node --no-warnings --env-file=.env.local \

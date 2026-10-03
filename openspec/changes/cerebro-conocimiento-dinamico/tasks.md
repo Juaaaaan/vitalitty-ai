@@ -2,16 +2,16 @@
 
 ## 1. Esquema en Supabase
 
-- [ ] 1.1 Escribir la migración de `prompts` y `prompt_versiones` en `supabase/migrations/` (cabecera con `slug` único por usuario, `nombre`, `tipo`, `version_activa_id`; versiones con `prompt_id`, `version`, `contenido`, `nota_cambio`, `created_at`, `created_by`) y verificar que `supabase db reset` la aplica sin error y que `list_tables` muestra las dos tablas con sus FK
-- [ ] 1.2 Añadir en la misma migración `documentos_conocimiento` y `documento_versiones` (`slug`, `titulo`, `tipo` como enum cerrado, `tags text[]`, `siempre_incluir bool`, `version_activa_id`; versiones con `documento_id`, `version`, `contenido_md`, `created_at`, `created_by`) y verificar igual
-- [ ] 1.3 Añadir RLS `created_by = auth.uid()` en las cuatro tablas, con `INSERT`/`SELECT` en las tablas de versiones y **sin** `UPDATE` ni `DELETE`, y verificar con dos usuarios de prueba que uno no ve ni modifica las filas del otro y que un `UPDATE` sobre una versión existente es rechazado
-- [ ] 1.4 Añadir el trigger que asigna `version` como máximo del padre + 1 (mismo patrón que `diet_version`) y verificar con dos inserciones concurrentes sobre el mismo padre que no se repite ningún número
+- [x] 1.1 Escribir la migración de `prompts` y `prompt_versiones` en `supabase/migrations/` (cabecera con `slug` único por usuario, `nombre`, `tipo`, `version_activa_id`; versiones con `prompt_id`, `version`, `contenido`, `nota_cambio`, `created_at`, `created_by`) y verificar que `supabase db reset` la aplica sin error y que `list_tables` muestra las dos tablas con sus FK
+- [x] 1.2 Añadir en la misma migración `documentos_conocimiento` y `documento_versiones` (`slug`, `titulo`, `tipo` como enum cerrado, `tags text[]`, `siempre_incluir bool`, `version_activa_id`; versiones con `documento_id`, `version`, `contenido_md`, `created_at`, `created_by`) y verificar igual
+- [x] 1.3 Añadir RLS `created_by = auth.uid()` en las cuatro tablas, con `INSERT`/`SELECT` en las tablas de versiones y **sin** `UPDATE` ni `DELETE`, y verificar con dos usuarios de prueba que uno no ve ni modifica las filas del otro y que un `UPDATE` sobre una versión existente es rechazado
+- [x] 1.4 Añadir el trigger que asigna `version` como máximo del padre + 1 (mismo patrón que `diet_version`) y verificar con dos inserciones concurrentes sobre el mismo padre que no se repite ningún número
 - [x] 1.5 Regenerar los tipos TypeScript de Supabase y verificar que `npm run build` compila con las cuatro tablas tipadas
 
 ## 2. Semilla de los prompts actuales
 
 - [x] 2.1 Extraer las instrucciones de generación hoy embebidas en `src/services/diet-generation-service.ts` a `DEFAULT_PROMPTS` en `src/constants/` (sin cambiar su texto) y verificar con un test que el bloque estático compuesto es idéntico byte a byte al anterior al cambio
-- [ ] 2.2 Escribir `scripts/seed-prompts.ts` que inserte un prompt por tipo con su versión 1 activa tomando el contenido **de esas constantes**, no de una copia pegada, y verificar que tras ejecutarlo `prompt_versiones.contenido` de la versión activa coincide carácter a carácter con la constante
+- [x] 2.2 Escribir `scripts/seed-prompts.ts` que inserte un prompt por tipo con su versión 1 activa tomando el contenido **de esas constantes**, no de una copia pegada, y verificar que tras ejecutarlo `prompt_versiones.contenido` de la versión activa coincide carácter a carácter con la constante
 - [x] 2.3 Añadir un test que falle si `DEFAULT_PROMPTS` queda vacío o pierde un tipo, para que el fallback no desaparezca por descuido en un refactor posterior
 
 ## 3. Endpoints de prompts
