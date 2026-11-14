@@ -24,6 +24,8 @@ La selección SHALL quedar resuelta antes de la primera llamada al modelo: el si
 
 La selección de documentos de conocimiento SHALL hacerse a partir de su `tipo` y sus etiquetas, cruzados con el perfil del paciente — patologías, objetivo, tipo de actividad —, más los documentos marcados de inclusión incondicional.
 
+El cruce SHALL ir de la etiqueta al texto de la ficha: una etiqueta describe al paciente cuando ella misma, o una de las formas registradas de decirla, aparece como palabra o frase completa en la ficha. NO SHALL hacerse por igualdad entre las etiquetas del documento y los valores de la ficha: la ficha es prosa dictada y extraída —"aumentar masa muscular"— y la etiqueta es vocabulario de archivo —`hipertrofia`—, así que esa igualdad no se cumple nunca. Se midió contra datos reales: de seis documentos entraba uno, el de inclusión incondicional, y dos generaciones con fichas distintas produjeron el mismo bloque estático byte a byte.
+
 La selección NO SHALL requerir una llamada a un modelo ni el cálculo de similitud semántica: SHALL ser una consulta sobre la metadata, para no añadir latencia ni coste a un presupuesto de tiempo que ya está al límite.
 
 Un documento sin versión activa NO SHALL entrar en contexto, aunque su metadata encaje.
@@ -35,6 +37,17 @@ Un documento SHALL entrar como mucho una vez, aunque encaje por varios criterios
 - **WHEN** se genera la dieta de un paciente con celiaquía registrada
 - **AND** existe un documento activo con la etiqueta correspondiente al gluten
 - **THEN** ese documento entra en el contexto de la generación
+
+#### Scenario: La ficha nombra la etiqueta con otras palabras
+
+- **WHEN** la ficha del paciente dice "aumentar masa muscular" como objetivo
+- **AND** existe un documento activo etiquetado `hipertrofia`
+- **THEN** ese documento entra en el contexto de la generación
+
+#### Scenario: La etiqueta aparece dentro de otra palabra
+
+- **WHEN** una etiqueta del documento aparece en la ficha solo como parte de una palabra más larga
+- **THEN** no cuenta como cruce, y el documento no entra por ella
 
 #### Scenario: Documento que no aplica a este paciente
 

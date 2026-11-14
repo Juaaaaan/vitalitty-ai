@@ -7,7 +7,7 @@ vi.mock("../../../lib/ai/anthropic", () => ({
 
 import {
   loadBrainContext,
-  profileTagsFromMemory,
+  profileTextFromMemory,
 } from "@/services/brain-retrieval-service";
 import {
   createFakeSupabase,
@@ -17,6 +17,7 @@ import {
   findDefaultPrompt,
   PROMPT_TYPE_DIET_GENERATION,
 } from "@/constants/brain-prompts";
+import { tagMatchesProfile } from "@/constants/brain-tag-vocabulary";
 import type { PatientMemory } from "@/models/patient-context/patient-memory.models";
 
 const OWNER = "u1";
@@ -164,28 +165,67 @@ beforeEach(() => {
   error = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-describe("profileTagsFromMemory", () => {
-  it("un paciente nuevo no aporta etiquetas", () => {
-    expect(profileTagsFromMemory(null)).toEqual([]);
+describe("profileTextFromMemory", () => {
+  it("un paciente nuevo no aporta texto", () => {
+    expect(profileTextFromMemory(null)).toBe("");
   });
 
-  it("normaliza acentos, mayúsculas y listas en una sola cadena", () => {
-    expect(
-      profileTagsFromMemory(
-        memoryWith({ patologias: "Celiaquía, SOP / Hipotiroidismo" }),
-      ),
-    ).toEqual(["celiaquia", "hipotiroidismo", "sop"]);
+  it("normaliza acentos y mayúsculas, y junta todos los campos", () => {
+    const text = profileTextFromMemory(
+      memoryWith({
+        patologias: "Celiaquía, SOP / Hipotiroidismo",
+        suplementos: "Creatina 8g/día",
+      }),
+    );
+
+    expect(text).toContain("celiaquia");
+    expect(text).toContain("hipotiroidismo");
+    expect(text).toContain("creatina");
   });
 
-  it("devuelve siempre el mismo orden para el mismo paciente", () => {
+  it("devuelve siempre el mismo texto para el mismo paciente", () => {
     const memory = memoryWith({
       patologias: ["Celiaquía"],
       objetivo_tipo: "Recomposición",
     });
 
-    expect(profileTagsFromMemory(memory)).toEqual(
-      profileTagsFromMemory(memory),
-    );
+    expect(profileTextFromMemory(memory)).toBe(profileTextFromMemory(memory));
+  });
+
+  /**
+   * El fallo que dejó el vault fuera de todas las generaciones: la ficha habla
+   * en prosa dictada y el documento en vocabulario de archivo, así que cruzarlos
+   * por igualdad de elementos no casa nunca. Estos casos son la alarma.
+   */
+  describe("tagMatchesProfile", () => {
+    it("casa la etiqueta con el sinónimo que de verdad dice la ficha", () => {
+      const text = profileTextFromMemory(
+        memoryWith({ objetivo_tipo: ["Aumentar masa muscular"] }),
+      );
+
+      expect(tagMatchesProfile("hipertrofia", text)).toBe(true);
+    });
+
+    it("casa celiaquía con la etiqueta del gluten", () => {
+      const text = profileTextFromMemory(
+        memoryWith({ patologias: ["Celiaquía"] }),
+      );
+
+      expect(tagMatchesProfile("gluten", text)).toBe(true);
+    });
+
+    it("no casa una etiqueta que la ficha no menciona", () => {
+      const text = profileTextFromMemory(
+        memoryWith({ objetivo_tipo: ["Bajar grasa"] }),
+      );
+
+      expect(tagMatchesProfile("microbiota", text)).toBe(false);
+    });
+
+    it("exige palabra completa, no subcadena", () => {
+      expect(tagMatchesProfile("pms", "toma pmsx a diario")).toBe(false);
+      expect(tagMatchesProfile("pms", "molestias de pms")).toBe(true);
+    });
   });
 });
 

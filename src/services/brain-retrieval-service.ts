@@ -10,6 +10,10 @@ import {
   PROMPT_TYPE_DIET_GENERATION,
 } from "@/constants/brain-prompts";
 import { CLINICAL_FIELD_LABELS } from "@/constants/patient-memory";
+import {
+  normalizeForTagMatch,
+  tagMatchesProfile,
+} from "@/constants/brain-tag-vocabulary";
 import type { PatientMemory } from "@/models/patient-context/patient-memory.models";
 
 /**
@@ -49,25 +53,34 @@ export type BrainRetrievalResult = {
   reason?: "no_active_prompt" | "query_failed" | "timeout";
 };
 
-/** Campos de la ficha con los que se cruzan las etiquetas de los documentos. */
-const PROFILE_FIELDS = CLINICAL_FIELD_LABELS.map(([field]) => field).filter(
-  (field) =>
-    field === "patologias" ||
-    field === "alergias_intolerancias" ||
-    field === "alimentos_evitar" ||
-    field === "objetivo_tipo" ||
-    field === "actividad_fisica_perfil",
-);
+/**
+ * Campos de la ficha contra los que se buscan las etiquetas de los documentos.
+ *
+ * La ficha entera, no una selección: una etiqueta es específica —`creatina`,
+ * `pms`, `gluten`—, así que mirar más texto apenas añade falsos positivos y sí
+ * añade sitios donde la consulta pudo mencionarla. La suplementación vive en
+ * `suplementos`, la celiaquía en `patologias` o en `alergias_intolerancias`
+ * según cómo se dictara, y el objetivo en dos campos distintos.
+ */
+const PROFILE_FIELDS = CLINICAL_FIELD_LABELS.map(([field]) => field);
 
 /**
- * Etiquetas que describen a este paciente.
+ * La ficha del paciente como un solo texto normalizado, para buscar etiquetas
+ * dentro.
  *
- * Normaliza a minúsculas sin acentos y parte por comas y barras, que es como el
- * modelo escribe estos campos ("celiaquía, SOP"). El resultado está ordenado y
- * sin repetidos: la query debe ser la misma para el mismo paciente.
+ * El cruce va en esta dirección y no en la contraria. Antes se construían
+ * pseudo-etiquetas con la prosa de la ficha y se le pedía a Postgres que
+ * solaparan con las del documento (`tags.ov`), que es igualdad exacta por
+ * elemento: la ficha decía "aumentar masa muscular" y el documento
+ * `hipertrofia`, así que **no casaba nunca**. Medido contra la base real, de
+ * seis documentos entraba solo el de inclusión incondicional, y dos
+ * generaciones con fichas distintas dieron el mismo bloque al byte.
+ *
+ * Una ficha vacía —un paciente nuevo— devuelve la cadena vacía, y entonces solo
+ * entran los documentos de inclusión incondicional.
  */
-export function profileTagsFromMemory(memory: PatientMemory | null): string[] {
-  if (!memory) return [];
+export function profileTextFromMemory(memory: PatientMemory | null): string {
+  if (!memory) return "";
 
   const values: string[] = [];
 
@@ -77,14 +90,7 @@ export function profileTagsFromMemory(memory: PatientMemory | null): string[] {
     values.push(...(Array.isArray(value) ? value : [String(value)]));
   }
 
-  const tags = values
-    .flatMap((value) => value.split(/[,/;]+/))
-    .map((value) =>
-      value.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase(),
-    )
-    .filter((value) => value.length > 2);
-
-  return [...new Set(tags)].sort();
+  return normalizeForTagMatch(values.join(" · "));
 }
 
 /**
@@ -101,6 +107,8 @@ export function profileTagsFromMemory(memory: PatientMemory | null): string[] {
 type DocumentRow = {
   slug: string;
   titulo: string;
+  tags: string[] | null;
+  siempre_incluir: boolean;
   documento_versiones: { id: string; contenido_md: string } | null;
 };
 
@@ -131,7 +139,7 @@ export async function loadBrainContext(
 
   try {
     const result = await withTimeout(
-      read(supabase, tipo, profileTagsFromMemory(memory)),
+      read(supabase, tipo, profileTextFromMemory(memory)),
       timeoutMs,
     );
 
@@ -171,11 +179,11 @@ export async function loadBrainContext(
 async function read(
   supabase: SupabaseClient,
   tipo: string,
-  profileTags: string[],
+  profileText: string,
 ): Promise<{ promptContent: string | null; documents: BrainDocument[] }> {
   const [promptContent, documents] = await Promise.all([
     readActivePrompt(supabase, tipo),
-    readDocuments(supabase, profileTags),
+    readDocuments(supabase, profileText),
   ]);
 
   return { promptContent, documents };
@@ -204,31 +212,27 @@ async function readActivePrompt(
 
 async function readDocuments(
   supabase: SupabaseClient,
-  profileTags: string[],
+  profileText: string,
 ): Promise<BrainDocument[]> {
-  // Una sola query con la versión activa embebida. El filtro es metadata:
-  // "siempre incluir" o etiqueta que solape con el perfil del paciente.
-  let query = supabase
+  // Una sola query con la versión activa embebida, y el cruce de etiquetas
+  // aquí: `tags.ov` compara elementos enteros, y la ficha no está escrita con
+  // el vocabulario del vault. Son los documentos de una nutricionista —media
+  // docena, no un corpus—, así que traerlos y filtrar sale más barato que
+  // sostener dos queries, y mucho más barato que una llamada al modelo.
+  const { data, error } = await supabase
     .from("documentos_conocimiento")
     .select(
-      "slug, titulo, documento_versiones!documentos_conocimiento_version_activa_id_fkey(id, contenido_md)",
+      "slug, titulo, tags, siempre_incluir, documento_versiones!documentos_conocimiento_version_activa_id_fkey(id, contenido_md)",
     );
-
-  query =
-    profileTags.length > 0
-      ? query.or(
-          `siempre_incluir.eq.true,tags.ov.{${profileTags
-            .map((tag) => `"${tag}"`)
-            .join(",")}}`,
-        )
-      : query.eq("siempre_incluir", true);
-
-  const { data, error } = await query;
 
   if (error)
     throw new Error(`Selecting knowledge documents failed: ${error.message}`);
 
-  const rows = (data ?? []) as unknown as DocumentRow[];
+  const rows = ((data ?? []) as unknown as DocumentRow[]).filter(
+    (row) =>
+      row.siempre_incluir ||
+      (row.tags ?? []).some((tag) => tagMatchesProfile(tag, profileText)),
+  );
 
   // Deduplicado por slug —un documento que encaja por tipo y por etiqueta entra
   // una vez— y orden estable: el bloque cacheado tiene que salir igual cada vez.
