@@ -18,7 +18,29 @@ Medido el 2026-10-03 sobre la rama `cerebro-conocimiento-dinamico`.
 
 Total con contenido: 181.660 caracteres. El mayor es el compendio de PubMed.
 
-## Lo que hay que corregir
+## ✅ Corregido el 2026-11-14
+
+El recetario de 141 platos ya está limpio y los seis ficheros con contenido
+pasan la validación de `scripts/load-vault.ts` (dry run sin ningún `✗`):
+
+| Antes                                    | Después                                                                           |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| 0 encabezados markdown                   | 17: `#` del banco, `##` por sección y `###` en las cajas de temporada             |
+| `<img src="media/image1.png">`           | borrado                                                                           |
+| 2 tablas HTML (`<table>`, `<th>`, `<p>`) | listas de viñetas con su `###`; 0 etiquetas HTML en todo el fichero               |
+| viñetas dentro de `>` y numeración `1\.` | listas markdown normales                                                          |
+| 32.715 caracteres                        | 32.233 (el marcado HTML fuera, el relleno de las tablas que pone prettier dentro) |
+
+Las **171 filas de tabla markdown se conservan intactas** (141 platos + 8 de la
+matriz de sustituciones + cabeceras), y el contenido se comprobó comparando el
+multiset de palabras del fichero antes y después: **idéntico, mismas palabras y
+mismas repeticiones**. Solo cambió el marcado.
+
+Queda un detalle cosmético, a propósito: los títulos siguen saliendo del nombre
+del fichero ("COMPENDIO PUBMED VITALITTY 01 10 2026"). El título es metadata, así
+que se reescribe desde `/cerebro` sin crear versión de contenido.
+
+## Lo que había que corregir
 
 1. **`VITALITTY_Recetario_Maestro_141_Platos.md` salió mal de la conversión
    desde Word.** Tres defectos concretos:
