@@ -287,6 +287,38 @@ dentro.
 `cacheReadInputTokens: 0` en las dos es lo correcto: el bloque cambió entre una y
 otra. El cache-hit de 10.4 pide una tercera generación sin tocar nada.
 
+## ✅ 7. Decisiones del 2026-11-14 sobre tiempo y alcance del vault
+
+**`maxDuration` sube a 180 s** en `/api/process-consultation` y en
+`/api/assistant/confirm`, las dos rutas que generan una dieta. Lo fuerza una
+medida, no una precaución: con el dictado completo de 4 minutos y el Cerebro
+sembrado, una generación tardó **86 s**. A 60 s Vercel corta esa ejecución
+_después_ de pagar el modelo, y como el `insert` ocurre al cerrarse el stream,
+la dieta no se guarda y el audio no se repite.
+
+**Esto requiere un plan de Vercel que admita más de 60 s.** Hobby lo limita a 60
+y rechaza el despliegue con un valor mayor. Si el plan no da, la conversación
+pasa a ser de hosting, no de código: las alternativas serían acortar la salida o
+partir la generación, no bajar el número y cruzar los dedos.
+
+Las otras rutas se quedan en 60: el bucle del asistente no genera, y
+`/api/diet-pdf`, `/api/compare-diets` y `/api/diet-portions` no han dado señal
+de necesitarlo. Un test fija el de `diet-pdf`.
+
+**Los dos recetarios pasan a `siempre_incluir`**, por decisión de la
+nutricionista: cuanta más información en contexto, más precisa la dieta. Son un
+banco de platos, así que aplican a cualquier paciente y por etiqueta no cruzaban
+nunca —ninguna ficha dice "platos"—. El coste es explícito:
+
+| Documentos de inclusión incondicional    | 3      | 82.752 caracteres en **toda** generación |
+| ---------------------------------------- | ------ | ---------------------------------------- |
+| Seleccionados para el paciente de prueba | 6 de 6 | 177.062 caracteres                       |
+
+El bloque estático queda en ~57k tokens (era 22,8k en la medida de los 86 s), así
+que **el tiempo va a subir y hay que volver a medirlo con los 180 s puestos**.
+Sigue por debajo del umbral del aviso de 8.4 (120.000 caracteres de inclusión
+incondicional), que mira solo los `siempre_incluir`.
+
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
 Con la migración aplicada y los prompts sembrados, `npm run dev` y:
