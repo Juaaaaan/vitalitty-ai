@@ -489,6 +489,48 @@ los 40.628 tokens—. Con ficha, cruzan también los tres por etiqueta y el bloq
 sube a 84.426. La conclusión de 10.1 no cambia; el alcance del vault en aquella
 generación, sí.
 
+## ✅ 11. El camino degradado (10.3)
+
+Las dos mitades, contra la base real, generando desde la sesión del navegador.
+
+### Sin documentos en contexto
+
+Los seis documentos se dejaron sin versión activa. La generación salió con
+`cacheCreationInputTokens: 4.518` —el bloque del prompt a secas— y **sin ningún
+aviso de fallback**: el prompt se leyó del Cerebro y lo único que faltaba eran
+los documentos. La dieta se generó y se guardó.
+
+Es la distinción que importa: quedarse sin documentos **no** es el camino
+degradado. El camino degradado es no poder leer el Cerebro.
+
+### Con la query fallando de verdad
+
+Retirado el `select` sobre `documentos_conocimiento` al rol `authenticated`, que
+provoca un error real y no una tabla vacía:
+
+```
+Brain retrieval failed, using the code defaults:
+  Error: Selecting knowledge documents failed:
+  permission denied for table documentos_conocimiento
+Generating with the code defaults: query_failed
+```
+
+Y **la consulta terminó y quedó guardada**: 9.597 caracteres, con su frontmatter,
+sus seis secciones y sus días. Un fallo del Cerebro no deja a la nutricionista
+sin dieta, que es para lo que existe el fallback.
+
+De regalo, esa generación trajo `cacheReadInputTokens: 4.518`: reutilizó la caché
+del bloque por defecto que había dejado la mitad anterior. La red de seguridad
+también cachea.
+
+### Restaurado
+
+Punteros de versión activa devueltos a los seis documentos, **cero
+discrepancias** con el respaldo tomado antes. Permisos de la tabla otra vez
+completos (`select`, `insert`, `update`, `delete`). Comprobado **desde la sesión
+del navegador**, no con la clave de servicio: 6 documentos visibles con su
+versión activa y el prompt activo en v5.
+
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
 Con la migración aplicada y los prompts sembrados, `npm run dev` y:
