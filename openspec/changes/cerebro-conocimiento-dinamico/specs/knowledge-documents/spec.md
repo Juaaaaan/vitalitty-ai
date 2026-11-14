@@ -109,3 +109,37 @@ El aviso SHALL ser informativo: NO SHALL impedir activar ni marcar un documento.
 - **WHEN** el usuario marca documentos de inclusión incondicional hasta superar el umbral de tamaño
 - **THEN** la pestaña Documentación muestra un aviso de que el conjunto activo es grande y afecta al coste de la generación
 - **AND** la acción se completa igualmente
+
+### Requirement: Un documento se puede retirar entero
+
+El sistema SHALL permitir borrar un documento de conocimiento completo, con todas sus versiones.
+
+El borrado SHALL exigir una confirmación explícita que nombre el documento y diga cuántas versiones se pierden. NO SHALL haber papelera ni deshacer.
+
+Que una versión sea definitiva —no se reescribe ni se borra por separado— SHALL seguir siendo cierto: lo que se retira es el documento entero, no una parte de su historia.
+
+Un documento borrado NO SHALL entrar en ninguna generación posterior, y las dietas ya generadas NO SHALL cambiar: su conocimiento quedó escrito dentro de cada documento, no referenciado.
+
+Un borrado que no llegue a quitar ninguna fila SHALL tratarse como un fallo y decírselo al usuario en español, nunca darse por bueno.
+
+#### Scenario: Borrar un documento con histórico
+
+- **WHEN** el usuario confirma el borrado de un documento con varias versiones
+- **THEN** desaparecen el documento y todas sus versiones
+- **AND** ninguna versión queda huérfana
+
+#### Scenario: El usuario no confirma
+
+- **WHEN** el usuario pide borrar un documento y no confirma
+- **THEN** no se borra nada
+
+#### Scenario: Documento de otro usuario
+
+- **WHEN** llega una petición de borrado de un documento que no es del usuario de la sesión
+- **THEN** se responde que no existe y el documento sigue ahí
+
+#### Scenario: El borrado no quita ninguna fila
+
+- **WHEN** el borrado se completa sin error pero no ha quitado ninguna fila
+- **THEN** el usuario ve que no se pudo borrar
+- **AND** el documento sigue apareciendo en el listado

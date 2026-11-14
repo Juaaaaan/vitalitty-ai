@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createClient } from "../../../../lib/supabase/server";
 import {
+  deleteKnowledgeDocument,
   isKnowledgeDocumentType,
   normalizeTags,
   updateDocumentMetadata,
@@ -10,6 +11,7 @@ import {
   BRAIN_SESSION_EXPIRED_MESSAGE,
   DOCUMENT_NOT_FOUND_MESSAGE,
   INVALID_DOCUMENT_TYPE_MESSAGE,
+  DELETE_FAILED_MESSAGE,
   SAVE_FAILED_MESSAGE,
 } from "@/constants/brain";
 
@@ -79,6 +81,44 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       );
     }
     return NextResponse.json({ error: SAVE_FAILED_MESSAGE }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+/**
+ * Borra el documento entero, con su histórico.
+ *
+ * Es irreversible y no tiene papelera: las versiones se van con él por el
+ * `on delete cascade`. Quien confirma es la pantalla; aquí se revalida lo único
+ * que importa, que el documento sea del usuario de la sesión, cosa que hace RLS
+ * dentro de la consulta y no la confianza en el identificador que llega.
+ */
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  const { id } = await params;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: BRAIN_SESSION_EXPIRED_MESSAGE },
+      { status: 401 },
+    );
+  }
+
+  const result = await deleteKnowledgeDocument(supabase, id);
+
+  if (!result.ok) {
+    if (result.reason === "not_found") {
+      return NextResponse.json(
+        { error: DOCUMENT_NOT_FOUND_MESSAGE },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json({ error: DELETE_FAILED_MESSAGE }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

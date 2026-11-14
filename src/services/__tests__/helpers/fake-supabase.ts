@@ -27,6 +27,12 @@ const VERSION_PARENT: Partial<Record<TableName, string>> = {
   documento_versiones: "documento_id",
 };
 
+/** Qué cabecera se lleva por delante a cada tabla de versiones al borrarse. */
+const CASCADE_PARENT: Partial<Record<TableName, TableName>> = {
+  prompt_versiones: "prompts",
+  documento_versiones: "documentos_conocimiento",
+};
+
 /**
  * Nombre embebido en un select -> cómo se une con la tabla padre.
  *
@@ -75,6 +81,11 @@ export type FakeSupabaseOptions = {
   tables?: FakeTables;
   /** Fuerza un error en los `select` de estas tablas, para probar el fallback. */
   failSelectOn?: TableName[];
+  /**
+   * Tablas sin política de DELETE: el borrado no quita nada y **no da error**,
+   * que es justo como se comporta RLS cuando la política falta.
+   */
+  failDeleteOn?: TableName[];
 };
 
 export type FakeSupabase = {
@@ -144,7 +155,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private embeds: string[] = [];
   private ambiguousEmbed: string | null = null;
   private columns: string[] = [];
-  private mode: "select" | "insert" | "update" = "select";
+  private mode: "select" | "insert" | "update" | "delete" = "select";
   private payload: Row | null = null;
 
   constructor(
@@ -152,6 +163,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
     private readonly table: TableName,
     private readonly userId: string,
     private readonly failSelectOn: TableName[],
+    private readonly failDeleteOn: TableName[],
   ) {}
 
   select(selector = "*"): FakeQuery {
@@ -168,6 +180,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   update(payload: Row): FakeQuery {
     this.mode = "update";
     this.payload = payload;
+    return this;
+  }
+
+  delete(): FakeQuery {
+    this.mode = "delete";
     return this;
   }
 
@@ -293,6 +310,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private async run(): Promise<{ data: unknown; error: unknown }> {
     if (this.mode === "insert") return this.runInsert();
     if (this.mode === "update") return this.runUpdate();
+    if (this.mode === "delete") return this.runDelete();
 
     if (this.failSelectOn.includes(this.table)) {
       return {
@@ -394,12 +412,43 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
     return { data: targets, error: null };
   }
+
+  /**
+   * Borrar, con las dos cosas que hace la base real: RLS, que solo deja tocar
+   * las filas propias, y el `on delete cascade` de las versiones hacia su
+   * cabecera. Sin la cascada, un test podría dar por bueno un borrado que deja
+   * el histórico colgando.
+   */
+  private runDelete(): { data: unknown; error: unknown } {
+    if (this.failDeleteOn.includes(this.table)) {
+      return { data: [], error: null };
+    }
+
+    const targets = this.matching();
+    const ids = new Set(targets.map((row) => row.id));
+
+    this.store[this.table] = (this.store[this.table] ?? []).filter(
+      (row) => !ids.has(row.id),
+    );
+
+    for (const [child, parentColumn] of Object.entries(VERSION_PARENT)) {
+      const childTable = child as TableName;
+      if (CASCADE_PARENT[childTable] !== this.table) continue;
+
+      this.store[childTable] = (this.store[childTable] ?? []).filter(
+        (row) => !ids.has(row[parentColumn] as string),
+      );
+    }
+
+    return { data: targets, error: null };
+  }
 }
 
 export function createFakeSupabase({
   userId,
   tables = {},
   failSelectOn = [],
+  failDeleteOn = [],
 }: FakeSupabaseOptions): FakeSupabase {
   const store: Required<FakeTables> = {
     prompts: tables.prompts ?? [],
@@ -414,6 +463,6 @@ export function createFakeSupabase({
       getUser: async () => ({ data: { user: userId ? { id: userId } : null } }),
     },
     from: (table: TableName) =>
-      new FakeQuery(store, table, userId, failSelectOn),
+      new FakeQuery(store, table, userId, failSelectOn, failDeleteOn),
   };
 }

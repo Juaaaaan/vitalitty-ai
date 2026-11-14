@@ -59,6 +59,12 @@
 - [x] 8.3 Reutilizar el editor versionado de la pestaña Prompts para el contenido del documento (Guardar, Activar, histórico, Restaurar) y verificar en navegador que el ciclo completo funciona sobre un documento
 - [x] 8.4 Implementar el aviso informativo cuando el tamaño conjunto de los documentos `siempre_incluir` supera el umbral, fijando el umbral a partir del tamaño real medido de los documentos de `vault/`, y verificar en navegador que el aviso aparece al pasarlo y que la acción se completa igualmente
 
+## 8-bis. Borrar documentos
+
+- [x] 8.5 Añadir la política de `DELETE` sobre `documentos_conocimiento` en una migración propia y verificar contra la base real que un borrado quita el documento y, por el `on delete cascade`, sus versiones, sin dejar ninguna huérfana
+- [x] 8.6 Implementar `DELETE /api/documentos/[id]` tratando como fallo el borrado que no quita ninguna fila —es lo que ocurre cuando falta la política—, y verificar con tests el camino bueno, el documento ajeno (`404`) y el borrado que no quita nada (`500`)
+- [x] 8.7 Añadir el botón de borrar en la tabla con confirmación que nombre el documento y diga cuántas versiones se pierden, y verificar en navegador que pulsar la papelera no borra nada hasta confirmar
+
 ## 9. Carga del vault existente
 
 - [x] 9.1 Revisar los ficheros de `vault/` y dejar anotado qué hay que corregir antes de cargarlos, empezando por el recetario de 141 platos que salió sucio de su conversión desde Word; verificar que la nota de revisión queda entregada en el change

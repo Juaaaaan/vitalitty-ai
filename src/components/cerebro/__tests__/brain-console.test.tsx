@@ -36,6 +36,25 @@ const VERSIONS: { versiones: BrainVersionWithContent[] } = {
   versiones: [VERSION_1],
 };
 
+const DOCUMENTOS = {
+  documentos: [
+    {
+      id: "d1",
+      slug: "recetario-maestro",
+      titulo: "Recetario maestro",
+      tipo: "recetario" as const,
+      tags: ["platos"],
+      siempreIncluir: false,
+      versionActiva: {
+        id: "dv1",
+        version: 2,
+        activadaEn: "2026-10-01T09:00:00.000Z",
+        tamano: 1234,
+      },
+    },
+  ],
+};
+
 function jsonResponse(payload: unknown, ok = true) {
   return { ok, json: async () => payload } as Response;
 }
@@ -47,7 +66,7 @@ beforeEach(() => {
     if (url.startsWith("/api/prompts/")) return jsonResponse(VERSIONS);
     if (url === "/api/prompts") return jsonResponse(PROMPTS);
     if (url.startsWith("/api/documentos"))
-      return jsonResponse({ documentos: [] });
+      return jsonResponse({ documentos: DOCUMENTOS.documentos });
     throw new Error(`Unexpected fetch: ${url}`);
   });
 });
@@ -181,6 +200,56 @@ describe("BrainConsole", () => {
         (screen.getByLabelText("Contenido") as HTMLTextAreaElement).value,
       ).toBe("Prompt nuevo, ya activo"),
     );
+  });
+});
+
+describe("Borrar un documento", () => {
+  /**
+   * Borrar no tiene vuelta atrás —no hay papelera y el histórico se va con el
+   * documento—, así que el botón no puede borrar: tiene que preguntar. Este
+   * test fija justo eso, que pulsar la papelera no manda ningún DELETE.
+   */
+  it("la papelera pide confirmación antes de borrar nada", async () => {
+    render(<BrainConsole />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Documentación" }));
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Borrar Recetario maestro/ }),
+    );
+
+    expect(await screen.findByText(/no se puede deshacer/i)).toBeDefined();
+
+    const llamadas = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(
+      llamadas.some(
+        ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+      ),
+    ).toBe(false);
+  });
+
+  it("al confirmar, manda el DELETE de ese documento", async () => {
+    render(<BrainConsole />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Documentación" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Borrar Recetario maestro/ }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Borrar definitivamente" }),
+    );
+
+    await waitFor(() => {
+      const llamadas = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+        .calls;
+      expect(
+        llamadas.some(
+          ([url, init]) =>
+            String(url) === "/api/documentos/d1" &&
+            (init as RequestInit | undefined)?.method === "DELETE",
+        ),
+      ).toBe(true);
+    });
   });
 });
 

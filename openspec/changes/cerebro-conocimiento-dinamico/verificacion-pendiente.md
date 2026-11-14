@@ -372,6 +372,37 @@ son los tres acordados. Queda en la base el documento de prueba
 no incondicional): no entra en ninguna generación porque ninguna ficha dice esas
 palabras, pero conviene borrarlo.
 
+## ✅ 9. Borrar documentos (2026-11-14)
+
+Pedido al rediseñar la pantalla. No era solo un botón: `documentos_conocimiento`
+tenía políticas de lectura, creación y actualización y **ninguna de borrado**, y
+con RLS activo lo que no tiene política se deniega **sin error**. Un `delete`
+habría quitado 0 filas y la pantalla habría dicho que borró algo que seguía ahí.
+
+- `supabase/migrations/20261114210000_allow_deleting_knowledge_documents.sql`
+  añade la política, y se aplicó al proyecto `vitalitty-ai` con autorización
+  explícita. Las versiones **siguen sin** política de `update` ni de `delete`:
+  una versión creada es definitiva, y lo que se retira es el documento entero.
+- Las versiones se van por el `on delete cascade` de `documento_versiones`. Una
+  acción en cascada la ejecuta el sistema y no pasa por RLS.
+- `deleteKnowledgeDocument` hace `select()` sobre el `delete` y **trata como
+  fallo** que no vuelva ninguna fila, para que una política ausente no vuelva a
+  poder disfrazarse de éxito. Un test lo simula.
+- No deja huérfanos ni cambia el pasado: ninguna consulta referencia a un
+  documento, porque el conocimiento quedó escrito dentro del markdown generado.
+
+**Verificado contra la base real** borrando con el botón el documento de prueba
+que quedó de la comprobación 8.2: de 7 a 6 documentos, de 8 a 6 versiones, **0
+versiones huérfanas**. El diálogo nombró el documento y avisó de que se perdían
+sus 2 versiones.
+
+Rollback:
+
+```sql
+drop policy "Users can delete own knowledge documents"
+  on public.documentos_conocimiento;
+```
+
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
 Con la migración aplicada y los prompts sembrados, `npm run dev` y:

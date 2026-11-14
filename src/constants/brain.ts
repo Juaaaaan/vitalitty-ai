@@ -28,6 +28,9 @@ export const ONLY_MARKDOWN_MESSAGE =
 export const INVALID_DOCUMENT_TYPE_MESSAGE =
   "Elige un tipo de documento de la lista.";
 
+export const DELETE_FAILED_MESSAGE =
+  "No se pudo borrar el documento. Vuelve a intentarlo.";
+
 export const SAVE_FAILED_MESSAGE =
   "No se pudo guardar. Inténtalo de nuevo en unos segundos.";
 

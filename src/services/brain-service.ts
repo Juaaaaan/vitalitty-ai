@@ -455,6 +455,49 @@ export async function updateDocumentMetadata(
   return { ok: true, data: null };
 }
 
+/**
+ * Borra el documento entero, con su histórico.
+ *
+ * El `on delete cascade` de `documento_versiones` se lleva las versiones. No es
+ * una contradicción con que una versión sea definitiva: lo que no se puede es
+ * reescribir el pasado de un documento vivo; retirar el documento completo —con
+ * todo lo suyo— es otra cosa, y es irreversible.
+ *
+ * No afecta a ninguna dieta ya generada: el conocimiento quedó escrito dentro
+ * de su markdown, no referenciado.
+ */
+export async function deleteKnowledgeDocument(
+  supabase: Client,
+  documentId: string,
+): Promise<BrainWriteResult<null>> {
+  const document = await findDocument(supabase, documentId);
+  if (!document) return { ok: false, reason: "not_found" };
+
+  // `select()` sobre el `delete` para saber qué se borró de verdad. Sin él, un
+  // borrado denegado por RLS —una política que falta, por ejemplo— afecta a 0
+  // filas y **no devuelve error**: la pantalla diría que borró algo que sigue
+  // ahí. Si no vuelve ninguna fila, es un fallo, no un éxito silencioso.
+  const { data, error } = await supabase
+    .from("documentos_conocimiento")
+    .delete()
+    .eq("id", documentId)
+    .select("id");
+
+  if (error) {
+    console.error("Error deleting knowledge document:", error);
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+
+  if (!data || data.length === 0) {
+    console.error(
+      `Deleting document ${documentId} removed no rows: the delete policy is probably missing.`,
+    );
+    return { ok: false, reason: "failed", detail: "no rows deleted" };
+  }
+
+  return { ok: true, data: null };
+}
+
 async function findDocument(
   supabase: Client,
   documentId: string,

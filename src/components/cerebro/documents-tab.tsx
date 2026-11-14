@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangleIcon, StarIcon, UploadIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  StarIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +17,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -63,6 +69,12 @@ export function DocumentsTab() {
   // pestaña de prompts: el editor se siembra al montarse.
   const [versionsFor, setVersionsFor] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // El documento que el usuario quiere borrar, mientras confirma. Guardamos la
+  // fila entera, no el id: el diálogo tiene que poder nombrarlo y decir cuánto
+  // se lleva por delante aunque la lista se recargue debajo.
+  const [pendingDelete, setPendingDelete] =
+    useState<KnowledgeDocumentSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // La identidad de la versión activa sale de `versions`, no del listado: el
   // editor se siembra de `versions`, así que remontarlo con lo que dice el
@@ -187,6 +199,28 @@ export function DocumentsTab() {
 
     await loadDocuments();
   };
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+
+    setDeleting(true);
+    const response = await fetch(`/api/documentos/${pendingDelete.id}`, {
+      method: "DELETE",
+    });
+    setDeleting(false);
+
+    if (!response.ok) {
+      const payload = await response.json();
+      setError(payload.error ?? "No se pudo borrar el documento.");
+      return;
+    }
+
+    setError(null);
+    // Si estaba abierto en la hoja, se cierra: ya no existe.
+    if (selectedId === pendingDelete.id) setSelectedId(null);
+    setPendingDelete(null);
+    await loadDocuments();
+  };
+
   return (
     <div className="space-y-5">
       {/* Lo primero es el número que decide el coste: lo que entra en TODAS las
@@ -314,6 +348,9 @@ export function DocumentsTab() {
                 <TableHead className="hidden w-[16rem] xl:table-cell">
                   Etiquetas
                 </TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -383,12 +420,80 @@ export function DocumentsTab() {
                       ))}
                     </span>
                   </TableCell>
+                  <TableCell>
+                    {/* `stopPropagation`: la fila entera abre el documento, y
+                        pulsar la papelera no debe abrirlo además de preguntar. */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Borrar ${document.titulo}`}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPendingDelete(document);
+                      }}
+                    >
+                      <Trash2Icon className="size-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      {/* Borrar no tiene vuelta atrás: no hay papelera y el histórico se va con
+          el documento, así que el diálogo lo nombra y dice qué se lleva. */}
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Borrar «{pendingDelete?.titulo}»</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Se borra el documento y su histórico entero
+                  {pendingDelete?.versionActiva
+                    ? ` (${pendingDelete.versionActiva.version} ${pendingDelete.versionActiva.version === 1 ? "versión" : "versiones"})`
+                    : ""}
+                  . No hay papelera: esto no se puede deshacer.
+                </p>
+                {pendingDelete?.siempreIncluir && (
+                  <p className="text-amber-700 dark:text-amber-400">
+                    Entra en todas las generaciones, así que dejará de hacerlo a
+                    partir de la siguiente.
+                  </p>
+                )}
+                <p>
+                  Las dietas ya generadas no cambian: su conocimiento quedó
+                  escrito dentro de cada documento.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              disabled={deleting}
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={confirmDelete}
+            >
+              {deleting ? "Borrando…" : "Borrar definitivamente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* El editor en una hoja lateral: así tiene la altura entera de la
           pantalla para un documento de 39.506 caracteres, y la tabla no pierde

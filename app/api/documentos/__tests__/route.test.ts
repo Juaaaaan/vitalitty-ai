@@ -16,7 +16,10 @@ import {
   POST as createVersion,
 } from "../[id]/versiones/route";
 import { POST as activate } from "../[id]/activar/route";
-import { PATCH as updateMetadata } from "../[id]/route";
+import {
+  DELETE as removeDocument,
+  PATCH as updateMetadata,
+} from "../[id]/route";
 
 const OWNER = "u1";
 
@@ -335,5 +338,66 @@ describe("PATCH /api/documentos/[id]", () => {
     expect(
       (await updateMetadata(body({ tipo: "inventado" }), params("d1"))).status,
     ).toBe(400);
+  });
+});
+
+describe("DELETE /api/documentos/[id]", () => {
+  it("borra el documento y arrastra su histórico", async () => {
+    const response = await removeDocument(body({}), params("d1"));
+
+    expect(response.status).toBe(200);
+    expect(
+      supabase.tables.documentos_conocimiento.some((row) => row.id === "d1"),
+    ).toBe(false);
+    // Las versiones se van con él: el `on delete cascade` no deja histórico
+    // colgando de un documento que ya no existe.
+    expect(
+      supabase.tables.documento_versiones.some(
+        (row) => row.documento_id === "d1",
+      ),
+    ).toBe(false);
+  });
+
+  it("no toca los demás documentos", async () => {
+    await removeDocument(body({}), params("d1"));
+
+    expect(
+      supabase.tables.documentos_conocimiento.some((row) => row.id === "d2"),
+    ).toBe(true);
+    expect(
+      supabase.tables.documento_versiones.some(
+        (row) => row.documento_id === "d2",
+      ),
+    ).toBe(true);
+  });
+
+  it("un borrado que no quita ninguna fila es un 500, no un éxito", async () => {
+    // Lo que pasa si falta la política de DELETE: RLS no deja tocar la fila y
+    // la operación termina sin error pero sin haber borrado nada. Dar eso por
+    // bueno sería decirle al usuario que borró algo que sigue ahí.
+    const sinPolitica = createFakeSupabase({
+      userId: OWNER,
+      tables: seeded().tables,
+      failDeleteOn: ["documentos_conocimiento"],
+    });
+    createClient.mockImplementation(async () => sinPolitica);
+
+    const response = await removeDocument(body({}), params("d1"));
+
+    expect(response.status).toBe(500);
+    expect(
+      sinPolitica.tables.documentos_conocimiento.some((row) => row.id === "d1"),
+    ).toBe(true);
+  });
+
+  it("un documento ajeno responde 404 y sigue existiendo", async () => {
+    const response = await removeDocument(body({}), params("d-ajeno"));
+
+    expect(response.status).toBe(404);
+    expect(
+      supabase.tables.documentos_conocimiento.some(
+        (row) => row.id === "d-ajeno",
+      ),
+    ).toBe(true);
   });
 });
