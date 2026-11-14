@@ -113,7 +113,42 @@ insertar, vuelve a leer de la base de datos y aborta si lo guardado no coincide
 carácter a carácter con la constante. Si imprime `✓ generacion-dieta: v1 active
 … identical to the constant`, la tarea 2.2 está verificada.
 
-## ✅ 3. Comprobación 10.1 hecha — el vault ya puede entrar
+## ⚠️ 3. Comprobación 10.1 — reabierta el 2026-11-14
+
+**Se dio por hecha y no lo estaba.** La dieta que se revisó salió de un paciente
+con 24 consultas, y el modelo no la generó: **copió la anterior**. Con la cadena
+de versiones delante no hay duda —tres transcripciones distintas, la misma dieta
+byte a byte, cambiando solo el número de versión del frontmatter:
+
+```
+v21  2026-09-30  11549 chars  md5 c39337bc08   transcripción:   0 ch
+v22  2026-11-14  11549 chars  md5 c39337bc08   transcripción: 315 ch
+v23  2026-11-14  11549 chars  md5 c39337bc08   transcripción: 492 ch
+v24  2026-11-14  11549 chars  md5 c39337bc08   transcripción: 492 ch (otro hash)
+```
+
+La v22 es anterior al arreglo del embed, así que **esto no lo trae este change**:
+es la memoria del paciente. `patient-context-service.ts` mete `lastDietMd` —la
+última dieta completa— después del bloque estático, y el modelo la reproduce en
+lugar de generar. Las v17, v19, v20 y v21 además se generaron con transcripción
+de 0 caracteres, solo con memoria: ahí arranca el eco.
+
+Dos consecuencias para este change:
+
+- **10.1 no prueba nada sobre el prompt sembrado** mientras se haga sobre un
+  paciente con historial. Hay que repetirla por la vía de **paciente nuevo**, que
+  no tiene memoria ni `lastDietMd`: así el modelo solo tiene el prompt activo, el
+  vault, las dietas de ejemplo y la transcripción.
+- **El efecto del vault es invisible en un paciente con historial.** La
+  generación con el Cerebro metió 18.316 tokens de conocimiento y la dieta salió
+  idéntica. No es que el conocimiento no entre —entra, y se ve en el contador de
+  caché—: es que la última dieta pesa más.
+
+El defecto de la memoria es anterior y más amplio que este change (CLAUDE.md ya
+anota "Patient memory can't forget"; esto es más fuerte: reproduce la última
+dieta literalmente). Merece su propio change, no un parche aquí.
+
+## ✅ 3-bis. Lo que la carga del vault sí esperaba
 
 **2026-11-14: generada una dieta en `/diets` con el Cerebro recién sembrado (solo
 el prompt v1, 0 documentos) y revisada por el usuario: correcta y equivalente a
@@ -190,6 +225,67 @@ La prueba en seco ya corrió contra la base de datos real y hace lo previsto:
 Un detalle cosmético: los títulos salen del nombre del fichero, así que quedan
 como "COMPENDIO PUBMED VITALITTY 01 10 2026". Se pueden reescribir desde
 `/cerebro` sin crear versión, porque el título es metadata.
+
+## ✅ 6. Bug encontrado al verificar en navegador: el embed ambiguo
+
+Arreglado en `fix(brain): name the foreign key when embedding the active version`.
+
+**El Cerebro nunca llegó a leer de la base de datos.** Entre cada cabecera y su
+tabla de versiones hay dos relaciones —la versión apunta a su cabecera, la
+cabecera a su versión activa—, y un embed que no nombra la FK lo rechaza
+PostgREST con `PGRST201`. Las cuatro queries del Cerebro lo hacían así.
+
+En el retrieval el fallo era invisible **por diseño**: no lanza nunca, así que la
+generación se iba al camino degradado y salía una dieta sin Cerebro, dejando una
+línea de log que nadie miraba. En `listPrompts` y `listKnowledgeDocuments` habría
+dado un 500 en `/cerebro`.
+
+Los 410 tests no lo vieron porque el doble de Supabase **unía siempre por la FK
+del padre e ignoraba el hint**: modelaba una base de datos que no existe. Ahora
+resuelve las dos relaciones y responde `PGRST201` a un embed sin cualificar, como
+la real — y al corregirlo aparecieron los otros dos casos, que estaban igual de
+roto sin que nadie lo supiera. Dos tests fijan ese comportamiento.
+
+Verificado contra la base real, las cuatro:
+
+| Query                                     | Antes      | Ahora                       |
+| ----------------------------------------- | ---------- | --------------------------- |
+| retrieval, prompt activo                  | `PGRST201` | 5.846 chars                 |
+| retrieval, documentos (tag `hipertrofia`) | `PGRST201` | 3 documentos, 111.922 chars |
+| `listPrompts`                             | `PGRST201` | v1 activa resuelta          |
+| `listKnowledgeDocuments`                  | `PGRST201` | 6/6 versiones resueltas     |
+
+De regalo, nombrar la FK hace el embed uno a uno: llega la versión activa y solo
+ella, en lugar del markdown de todas las versiones.
+
+### Aparte, y previo a este change
+
+`POST /api/compare-diets` con el cuerpo vacío lanza `SyntaxError: Unexpected end
+of JSON input` en `route.ts:20` y **responde 200**. Debería ser un `400` con
+`error`, como el resto de las rutas. No toca a este change.
+
+## ✅ 5. Coste del retrieval medido (tarea 6.5)
+
+Dos generaciones seguidas en local, mismo audio y mismo paciente, una antes del
+arreglo del embed y otra después:
+
+|                                      | 1ª (camino degradado) | 2ª (con el Cerebro) |
+| ------------------------------------ | --------------------- | ------------------- |
+| retrieval                            | `query_failed`        | OK                  |
+| `cacheCreationInputTokens`           | 4.518                 | **22.834**          |
+| `cacheReadInputTokens`               | 0                     | 0                   |
+| `inputTokens`                        | 6.691                 | 6.654               |
+| `outputTokens`                       | 5.746                 | 5.746               |
+| total de `/api/process-consultation` | 51 s                  | **51 s**            |
+
+**El bloque estático se multiplica por cinco y el tiempo total no se mueve.** El
+retrieval son dos queries por metadata sobre tablas pequeñas; no consume margen
+apreciable de `maxDuration = 60`. Los 59,6 s del peor caso conocido eran un
+paciente con 13 dietas, no este, así que ese caso sigue sin medir con el Cerebro
+dentro.
+
+`cacheReadInputTokens: 0` en las dos es lo correcto: el bloque cambió entre una y
+otra. El cache-hit de 10.4 pide una tercera generación sin tocar nada.
 
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 

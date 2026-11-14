@@ -42,7 +42,7 @@
 - [x] 6.2 Llamar al retrieval desde `app/api/process-consultation/` antes de la primera llamada al modelo, con el cliente Supabase de la sesión, y verificar con un test de ruta que el conjunto se resuelve una sola vez por petición
 - [x] 6.3 Verificar con un test que el bloque estático generado con el Cerebro sembrado es idéntico byte a byte al que producía el código antes del change (la comprobación que hace válida la semilla)
 - [x] 6.4 Actualizar `src/services/__tests__/diet-contract-sync.test.ts` o añadir el equivalente para que la alarma de desincronización del contrato siga valiendo ahora que las instrucciones pueden venir de la BD, y verificar que el test falla si el contrato deja de concatenarse
-- [ ] 6.5 Medir en navegador una generación completa con el Cerebro sembrado y anotar el tiempo frente a los 59,6 s del peor caso conocido, para saber cuánto margen consume el retrieval dentro de `maxDuration = 60`
+- [x] 6.5 Medir en navegador una generación completa con el Cerebro sembrado y anotar el tiempo frente a los 59,6 s del peor caso conocido, para saber cuánto margen consume el retrieval dentro de `maxDuration = 60`
 
 ## 7. UI — pestaña Prompts
 
@@ -66,7 +66,7 @@
 
 ## 10. Verificación de integración
 
-- [x] 10.1 Verificar en navegador que una generación con el Cerebro recién sembrado, sin que nadie haya editado nada, produce una dieta equivalente en estructura y calidad a la actual, y que su vista previa en `/diets` se reconoce como estructurada
+- [ ] 10.1 Verificar en navegador que una generación con el Cerebro recién sembrado, sin que nadie haya editado nada, produce una dieta equivalente en estructura y calidad a la actual, y que su vista previa en `/diets` se reconoce como estructurada — **reabierta: la comprobación del 2026-11-14 se hizo sobre un paciente con historial y el modelo reprodujo su última dieta tal cual, así que no probaba nada. Hay que repetirla por la vía de paciente nuevo** (ver `verificacion-pendiente.md`)
 - [ ] 10.2 Verificar en navegador que activar una versión nueva del prompt de generación se refleja en la siguiente generación, sin redespliegue
 - [ ] 10.3 Verificar con la tabla de documentos vacía, y después provocando un fallo de la query, que la generación se completa igualmente por el camino del fallback y que la consulta queda guardada con su dieta
 - [ ] 10.4 Medir el cache-hit del bloque estático en dos generaciones consecutivas sin cambios en el Cerebro, y de nuevo tras activar una versión, y anotar que la primera posterior al cambio se factura en frío y las siguientes vuelven a cachear
