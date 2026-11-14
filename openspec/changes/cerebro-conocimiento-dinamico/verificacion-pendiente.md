@@ -113,7 +113,44 @@ insertar, vuelve a leer de la base de datos y aborta si lo guardado no coincide
 carácter a carácter con la constante. Si imprime `✓ generacion-dieta: v1 active
 … identical to the constant`, la tarea 2.2 está verificada.
 
-## ⚠️ 3. Comprobación 10.1 — reabierta el 2026-11-14
+## ✅ 3. Comprobación 10.1 — hecha (2026-11-14, segundo intento)
+
+**Vale la segunda.** La primera se hizo sobre un paciente con 24 consultas y el
+modelo no generó nada: copió su dieta anterior. Repetida sobre un paciente sin
+historial —creado a mano con un correo que no chocara, y elegido por la vía de
+"paciente existente", porque la de "paciente nuevo" sigue rota por el choque de
+email— y revisada por la nutricionista: **dieta correcta y vista previa
+maquetada con la marca**, no markdown crudo.
+
+|                            | 1ª (paciente con historial) | 10.1 (paciente limpio)      |
+| -------------------------- | --------------------------- | --------------------------- |
+| `cacheCreationInputTokens` | 22.834                      | **40.628**                  |
+| `inputTokens`              | 6.654                       | **1.250** (sin ficha)       |
+| `outputTokens`             | 5.746                       | **5.366**                   |
+| total                      | 51 s                        | **70 s**                    |
+| dieta                      | copia byte a byte de la v21 | **9.641 caracteres, nueva** |
+
+Lo que esto prueba:
+
+- **El Cerebro entra en la generación.** 40.628 tokens de bloque cacheado, frente
+  a 22.834 con un solo documento y 4.518 con el prompt a secas.
+- **El eco era la memoria, no el Cerebro.** Sin ficha ni `lastDietMd`, la dieta
+  deja de parecerse a la anterior y los `inputTokens` caen a 1.250.
+- **El contrato se cumple** con el prompt sembrado: frontmatter con sus cuatro
+  campos, las seis secciones en orden, 7 días y 42 etiquetas de comida. Guardada
+  como v1 con su transcripción de 3.044 caracteres, su peso y su resumen.
+- **70 s**: cabe en los 180 nuevos y se habría cortado en los 60 de antes.
+
+Dos cosas que la comprobación deja anotadas:
+
+- **El defecto de los macros sigue**: se coló un "50 g de proteína", que el
+  contrato prohíbe. Ya estaba abierto; ahora con evidencia del Cerebro sembrado.
+- **Ningún nombre de plato del recetario aparece literal** (0 de 149). No es un
+  fallo —el banco da combinaciones, no nombres que copiar—, pero significa que
+  por texto solo se demuestra que el vault **entra**, no que mejore la dieta.
+  Eso lo dice el criterio clínico, y aquí lo dijo.
+
+### Lo que decía la reapertura
 
 **Se dio por hecha y no lo estaba.** La dieta que se revisó salió de un paciente
 con 24 consultas, y el modelo no la generó: **copió la anterior**. Con la cadena
