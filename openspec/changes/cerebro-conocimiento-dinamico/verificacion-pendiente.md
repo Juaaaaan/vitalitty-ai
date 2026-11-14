@@ -121,6 +121,43 @@ las de siempre.** Esa es la referencia limpia de "una dieta como las de hoy", y
 es lo que hacía de puerta a la carga del vault. El paso 1 del orden acordado
 queda cerrado; sigue el 2 (limpiar el recetario de 141 platos).
 
+## ✅ 4. Vault cargado (tarea 9.2)
+
+**2026-11-14.** Limpiado el recetario (ver `vault-review.md`), `load-vault.ts`
+corrió contra la base de datos real y entraron los seis ficheros con contenido,
+cada uno con su v1 activa. `index.md` se salta por vacío, como estaba previsto.
+
+Comprobado leyendo luego la base de datos y comparando md5 contra el fichero de
+`vault/`: **6 documentos, 6 versiones, md5 idéntico en los seis.**
+
+| Documento                                                     | Tipo             | Entra por                                    | Caracteres |
+| ------------------------------------------------------------- | ---------------- | -------------------------------------------- | ---------- |
+| PROTOCOLO MAESTRO PROMPTS EDITOR VITALITTY v2                 | `protocolo`      | **siempre incluir**                          | 39.506     |
+| COMPENDIO PUBMED VITALITTY                                    | `paper`          | `hipertrofia` `microbiota` `pms` `evidencia` | 50.546     |
+| Fuentes cientificas Vitalitty 01 Hipertrofia Microbiota Mujer | `paper`          | `hipertrofia` `microbiota` `pms` `mujer`     | 21.870     |
+| Biblioteca Maestra Suplementacion Vitalitty v1                | `suplementacion` | `suplementacion` `creatina` `proteina`       | 21.894     |
+| VITALITTY Recetario Maestro 141 Platos                        | `recetario`      | `platos`                                     | 31.699     |
+| VITALITTY Ampliacion Banco Maestro 50 Platos                  | `recetario`      | `platos`                                     | 11.547     |
+
+Lo que esto cambia, y hay que vigilar ahora:
+
+- **El bloque estático crece en 39.506 caracteres en toda generación** (el
+  protocolo del editor), más lo que cruce por etiquetas. La medición 6.5 / 10.4
+  pasa de "conviene" a "hace falta": el peor caso conocido eran 59,6 s contra
+  `maxDuration = 60`.
+- **El paso 4 del orden acordado está pendiente**: generar otra dieta y ver el
+  efecto del conocimiento, ahora sí con el vault dentro.
+- Los títulos siguen saliendo del nombre del fichero. Es metadata: se reescriben
+  desde `/cerebro` sin crear versión.
+
+Deshacerlo, si hiciera falta, pide la service-role key (las tablas de versiones
+no tienen política de `DELETE`):
+
+```sql
+delete from public.documento_versiones;
+delete from public.documentos_conocimiento;
+```
+
 ### Por qué la carga esperaba
 
 En cuanto el vault entre, las dietas cambian — el protocolo del editor está

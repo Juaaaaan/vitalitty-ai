@@ -62,7 +62,7 @@
 ## 9. Carga del vault existente
 
 - [x] 9.1 Revisar los ficheros de `vault/` y dejar anotado qué hay que corregir antes de cargarlos, empezando por el recetario de 141 platos que salió sucio de su conversión desde Word; verificar que la nota de revisión queda entregada en el change
-- [ ] 9.2 Escribir `scripts/load-vault.ts` (nunca importado desde `app/` ni `src/`) que cree un documento por fichero con su `tipo`, sus `tags` y su versión 1 activa, y verificar tras ejecutarlo que cada fichero tiene su documento y que su contenido coincide con el del fichero
+- [x] 9.2 Escribir `scripts/load-vault.ts` (nunca importado desde `app/` ni `src/`) que cree un documento por fichero con su `tipo`, sus `tags` y su versión 1 activa, y verificar tras ejecutarlo que cada fichero tiene su documento y que su contenido coincide con el del fichero
 
 ## 10. Verificación de integración
 

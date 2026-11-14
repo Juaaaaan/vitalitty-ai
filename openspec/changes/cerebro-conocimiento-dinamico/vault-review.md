@@ -23,13 +23,13 @@ Total con contenido: 181.660 caracteres. El mayor es el compendio de PubMed.
 El recetario de 141 platos ya está limpio y los seis ficheros con contenido
 pasan la validación de `scripts/load-vault.ts` (dry run sin ningún `✗`):
 
-| Antes                                    | Después                                                                           |
-| ---------------------------------------- | --------------------------------------------------------------------------------- |
-| 0 encabezados markdown                   | 17: `#` del banco, `##` por sección y `###` en las cajas de temporada             |
-| `<img src="media/image1.png">`           | borrado                                                                           |
-| 2 tablas HTML (`<table>`, `<th>`, `<p>`) | listas de viñetas con su `###`; 0 etiquetas HTML en todo el fichero               |
-| viñetas dentro de `>` y numeración `1\.` | listas markdown normales                                                          |
-| 32.715 caracteres                        | 32.233 (el marcado HTML fuera, el relleno de las tablas que pone prettier dentro) |
+| Antes                                    | Después                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 0 encabezados markdown                   | 17: `#` del banco, `##` por sección y `###` en las cajas de temporada                             |
+| `<img src="media/image1.png">`           | borrado                                                                                           |
+| 2 tablas HTML (`<table>`, `<th>`, `<p>`) | listas de viñetas con su `###`; 0 etiquetas HTML en todo el fichero                               |
+| viñetas dentro de `>` y numeración `1\.` | listas markdown normales                                                                          |
+| 32.715 caracteres                        | 32.233 bytes / 31.699 caracteres (el marcado HTML fuera, el relleno de tablas de prettier dentro) |
 
 Las **171 filas de tabla markdown se conservan intactas** (141 platos + 8 de la
 matriz de sustituciones + cabeceras), y el contenido se comprobó comparando el
