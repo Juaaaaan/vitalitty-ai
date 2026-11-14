@@ -23,17 +23,17 @@ const PROMPTS = {
   ],
 };
 
+const VERSION_1: BrainVersionWithContent = {
+  id: "pv1",
+  version: 1,
+  contenido: "Prompt activo",
+  notaCambio: null,
+  createdAt: "2026-10-01T09:00:00.000Z",
+  activa: true,
+};
+
 const VERSIONS: { versiones: BrainVersionWithContent[] } = {
-  versiones: [
-    {
-      id: "pv1",
-      version: 1,
-      contenido: "Prompt activo",
-      notaCambio: null,
-      createdAt: "2026-10-01T09:00:00.000Z",
-      activa: true,
-    },
-  ],
+  versiones: [VERSION_1],
 };
 
 function jsonResponse(payload: unknown, ok = true) {
@@ -73,6 +73,107 @@ describe("BrainConsole", () => {
 
     expect(await screen.findByText("v1")).toBeDefined();
     expect(await screen.findByText(/Versión activa: v1/)).toBeDefined();
+  });
+
+  /**
+   * El editor se siembra de la versión activa al montarse, a propósito: así no
+   * hace falta un efecto que sincronice el borrador. El precio es que montarlo
+   * antes de que el histórico llegue lo deja vacío para siempre, porque su
+   * `key` no cambia cuando llegan las versiones. Pasó en el navegador: el
+   * prompt tenía 5.846 caracteres en la base y el textarea estaba en blanco.
+   *
+   * Los tests del editor no lo veían porque le pasan las versiones ya cargadas.
+   * Este monta la consola entera y espera por el contenido.
+   */
+  it("el editor arranca con el contenido de la versión activa, no vacío", async () => {
+    render(<BrainConsole />);
+
+    const editor = (await screen.findByLabelText(
+      "Contenido",
+    )) as HTMLTextAreaElement;
+
+    await waitFor(() => expect(editor.value).toBe("Prompt activo"));
+  });
+
+  /**
+   * El otro lado del mismo problema. Al activar una versión, el listado y el
+   * histórico se recargan por separado, y el listado llega antes. Si el editor
+   * se remonta con lo que dice el listado, lo hace mientras el histórico sigue
+   * marcando activa la versión anterior: el subtítulo anunciaba el tamaño nuevo
+   * y el textarea mostraba el contenido viejo. Guardar encima habría creado una
+   * versión con el contenido de la anterior.
+   */
+  it("tras activar, el editor muestra el contenido de la versión recién activada", async () => {
+    const v2: BrainVersionWithContent = {
+      id: "pv2",
+      version: 2,
+      contenido: "Prompt nuevo, ya activo",
+      notaCambio: "Segunda versión",
+      createdAt: "2026-10-02T09:00:00.000Z",
+      activa: false,
+    };
+
+    // El listado contesta con la versión activa nueva de inmediato; el
+    // histórico, un turno más tarde. Ese desfase es el que rompía el editor.
+    let historicoActualizado = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.endsWith("/activar")) {
+        historicoActualizado = true;
+        return jsonResponse({ ok: true });
+      }
+      if (url.startsWith("/api/prompts/") && init?.method === undefined) {
+        if (historicoActualizado) {
+          // El desfase es el bug: `activate` recarga listado e histórico con un
+          // `Promise.all`, y sus `setState` caen en microtasks distintas, así
+          // que React puede confirmar el listado antes. Sin este retraso las
+          // dos respuestas entran en el mismo lote y el fallo no se reproduce.
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return jsonResponse({
+            versiones: [
+              { ...v2, activa: true },
+              { ...VERSION_1, activa: false },
+            ],
+          });
+        }
+        return jsonResponse({ versiones: [v2, VERSION_1] });
+      }
+      if (url === "/api/prompts") {
+        return jsonResponse({
+          prompts: [
+            {
+              ...PROMPTS.prompts[0],
+              versionActiva: historicoActualizado
+                ? {
+                    id: "pv2",
+                    version: 2,
+                    activadaEn: "2026-10-02T09:00:00.000Z",
+                  }
+                : PROMPTS.prompts[0].versionActiva,
+            },
+          ],
+        });
+      }
+      if (url.startsWith("/api/documentos"))
+        return jsonResponse({ documentos: [] });
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<BrainConsole />);
+
+    const editor = (await screen.findByLabelText(
+      "Contenido",
+    )) as HTMLTextAreaElement;
+    await waitFor(() => expect(editor.value).toBe("Prompt activo"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Activar" }));
+
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText("Contenido") as HTMLTextAreaElement).value,
+      ).toBe("Prompt nuevo, ya activo"),
+    );
   });
 });
 

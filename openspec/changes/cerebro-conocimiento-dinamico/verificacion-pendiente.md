@@ -319,6 +319,59 @@ que **el tiempo va a subir y hay que volver a medirlo con los 180 s puestos**.
 Sigue por debajo del umbral del aviso de 8.4 (120.000 caracteres de inclusión
 incondicional), que mira solo los `siempre_incluir`.
 
+## ✅ 8. Pestañas Prompts y Documentación verificadas (7.x y 8.x)
+
+Recorridas en navegador con Playwright el 2026-11-14, contra la base real.
+**Destaparon dos bugs del editor versionado**, los dos arreglados y con test que
+falla sin el arreglo.
+
+### Bug 1 — el editor arrancaba vacío
+
+`/cerebro` cargaba, el prompt salía con su `v1` marcada… y el textarea en blanco,
+con 5.846 caracteres en la base de datos. El editor se siembra de la versión
+activa **al montarse**, a propósito, para no sincronizar estado en un efecto; el
+padre lo remonta con `key`. El problema: se montaba antes de que el histórico
+llegara, y su `key` no cambiaba al llegar, así que el borrador se quedaba vacío
+para siempre. Arreglado no montando el editor hasta que las versiones del
+elemento seleccionado están cargadas (`versionsFor`).
+
+Los tests no lo veían porque le pasaban las versiones ya cargadas.
+
+### Bug 2 — tras activar, el editor mostraba la versión anterior
+
+Más sutil y más peligroso. Al activar una versión, `activate` recarga listado e
+histórico con un `Promise.all`, y sus `setState` caen en microtasks distintas, así
+que React puede confirmar el listado primero: el editor se remontaba con la `key`
+nueva mientras el histórico seguía marcando activa la versión anterior. En
+pantalla, el subtítulo anunciaba **147 caracteres** y el textarea mostraba los
+**122** de la versión vieja. Guardar encima habría creado una versión con el
+contenido anterior, silenciosamente.
+
+Arreglado derivando la `key` de las **mismas** versiones de las que se siembra el
+editor, no de lo que diga el listado. El test necesita retrasar la respuesta del
+histórico para reproducir el desfase: sin ese retraso las dos respuestas entran
+en el mismo lote de React y el fallo no aparece.
+
+### Lo comprobado
+
+| Tarea     | Resultado                                                                                                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7.1 / 7.2 | Carga, cambia de pestaña, "Generación de dieta" con su versión activa marcada y el editor con los 5.846 caracteres de la base                                                                                       |
+| 7.3       | Guardar → "Guardado como versión nueva. No está activa todavía", activa sigue en v1, histórico pasa a 2. Activar → v2, y tras recargar sigue en v2, con "Activa desde" en la hora de activación y no la de creación |
+| 7.4       | Ver cambios enseña el diff en verde de lo añadido. Restaurar carga el contenido antiguo sin guardar ni activar; al guardar sale una v3 y v1 y v2 quedan intactas, sin reutilizar número                             |
+| 7.5       | No aplica tal cual: ningún listado del Cerebro usa TanStack Table. Comprobado que no se congela al abrir ni al filtrar                                                                                              |
+| 8.1       | Soltado un `.pdf`: sale "Sube el documento en formato Markdown (.md)." y en la pestaña de red **solo los dos GET del listado, ningún POST**                                                                         |
+| 8.2       | Subido un `.md`: aparece con su tipo, su versión y sus etiquetas. Filtro por etiqueta `platos` → 2; filtro combinado `paper` + `platos` → 0 con "No hay documentos con ese filtro."                                 |
+| 8.3       | Ciclo completo sobre ese documento: Guardar no activa, Activar mueve el puntero y el editor lo sigue, Restaurar carga el contenido antiguo sin tocar nada                                                           |
+| 8.4       | Marcado el compendio de PubMed como incondicional: el aviso sale con el total exacto —**133.298 caracteres** sobre el umbral de 120.000— y la acción se completa igual. Desmarcado después: vuelta a 82.752         |
+
+El Cerebro quedó como estaba: el prompt activo es la **v3**, con md5
+`cd53639453541f910ccd0ce1d0a274b9`, idéntico al sembrado, y los incondicionales
+son los tres acordados. Queda en la base el documento de prueba
+`prueba-verificacion-8-2` (147 caracteres, etiquetas `prueba` y `verificacion`,
+no incondicional): no entra en ninguna generación porque ninguna ficha dice esas
+palabras, pero conviene borrarlo.
+
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
 Con la migración aplicada y los prompts sembrados, `npm run dev` y:

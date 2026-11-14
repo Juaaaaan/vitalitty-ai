@@ -46,18 +46,18 @@
 
 ## 7. UI — pestaña Prompts
 
-- [ ] 7.1 Crear `app/cerebro/` con las dos pestañas y el componente de editor versionado en `src/components/cerebro/` (textarea, Guardar, Activar, histórico, Restaurar), y verificar en navegador que la página carga y cambia de pestaña
-- [ ] 7.2 Conectar el listado de prompts por tipo con la versión activa marcada, llamando a `/api/prompts` con `fetch` (sin Server Actions), y verificar en navegador que se ven los prompts sembrados y cuál está activo
-- [ ] 7.3 Implementar Guardar y Activar como acciones separadas y verificar en navegador que guardar deja la versión activa como estaba y que activar la cambia, recargando la página para confirmar que persiste
-- [ ] 7.4 Implementar el histórico con diff textual frente a la versión anterior y el botón Restaurar, y verificar en navegador que restaurar una versión antigua crea una versión nueva y el histórico anterior sigue completo
-- [ ] 7.5 Si el listado usa TanStack Table, pasar `data` y `columns` desde estado o `useMemo` y verificar en navegador que la pestaña no se congela al abrir y al filtrar (regla dura 3)
+- [x] 7.1 Crear `app/cerebro/` con las dos pestañas y el componente de editor versionado en `src/components/cerebro/` (textarea, Guardar, Activar, histórico, Restaurar), y verificar en navegador que la página carga y cambia de pestaña
+- [x] 7.2 Conectar el listado de prompts por tipo con la versión activa marcada, llamando a `/api/prompts` con `fetch` (sin Server Actions), y verificar en navegador que se ven los prompts sembrados y cuál está activo
+- [x] 7.3 Implementar Guardar y Activar como acciones separadas y verificar en navegador que guardar deja la versión activa como estaba y que activar la cambia, recargando la página para confirmar que persiste
+- [x] 7.4 Implementar el histórico con diff textual frente a la versión anterior y el botón Restaurar, y verificar en navegador que restaurar una versión antigua crea una versión nueva y el histórico anterior sigue completo
+- [x] 7.5 **No aplica tal cual** (ningún listado del Cerebro usa TanStack Table: son listas de botones). Verificado en su lugar que la pestaña no se congela al abrir ni al filtrar. Si el listado usa TanStack Table, pasar `data` y `columns` desde estado o `useMemo` y verificar en navegador que la pestaña no se congela al abrir y al filtrar (regla dura 3)
 
 ## 8. UI — pestaña Documentación
 
-- [ ] 8.1 Implementar la zona de arrastrar y soltar / botón Adjuntar que acepta **solo** `.md` y rechaza cualquier otro formato antes de subir, con el mensaje "Sube el documento en formato Markdown (.md)", y verificar en navegador soltando un `.pdf` que no se sube nada y el mensaje aparece
-- [ ] 8.2 Implementar el formulario de metadata al subir (`tipo`, `tags`, `siempre_incluir`) y el listado filtrable por tipo y etiqueta, y verificar en navegador que un documento recién subido aparece con su metadata y responde a los filtros
-- [ ] 8.3 Reutilizar el editor versionado de la pestaña Prompts para el contenido del documento (Guardar, Activar, histórico, Restaurar) y verificar en navegador que el ciclo completo funciona sobre un documento
-- [ ] 8.4 Implementar el aviso informativo cuando el tamaño conjunto de los documentos `siempre_incluir` supera el umbral, fijando el umbral a partir del tamaño real medido de los documentos de `vault/`, y verificar en navegador que el aviso aparece al pasarlo y que la acción se completa igualmente
+- [x] 8.1 Implementar la zona de arrastrar y soltar / botón Adjuntar que acepta **solo** `.md` y rechaza cualquier otro formato antes de subir, con el mensaje "Sube el documento en formato Markdown (.md)", y verificar en navegador soltando un `.pdf` que no se sube nada y el mensaje aparece
+- [x] 8.2 Implementar el formulario de metadata al subir (`tipo`, `tags`, `siempre_incluir`) y el listado filtrable por tipo y etiqueta, y verificar en navegador que un documento recién subido aparece con su metadata y responde a los filtros
+- [x] 8.3 Reutilizar el editor versionado de la pestaña Prompts para el contenido del documento (Guardar, Activar, histórico, Restaurar) y verificar en navegador que el ciclo completo funciona sobre un documento
+- [x] 8.4 Implementar el aviso informativo cuando el tamaño conjunto de los documentos `siempre_incluir` supera el umbral, fijando el umbral a partir del tamaño real medido de los documentos de `vault/`, y verificar en navegador que el aviso aparece al pasarlo y que la acción se completa igualmente
 
 ## 9. Carga del vault existente
 

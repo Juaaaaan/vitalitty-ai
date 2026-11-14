@@ -36,6 +36,20 @@ export function DocumentsTab() {
   const [documents, setDocuments] = useState<KnowledgeDocumentSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [versions, setVersions] = useState<BrainVersionWithContent[]>([]);
+  // De quién son las versiones que hay en estado, por lo mismo que en la
+  // pestaña de prompts: el editor se siembra al montarse.
+  const [versionsFor, setVersionsFor] = useState<string | null>(null);
+
+  // La identidad de la versión activa sale de `versions`, no del listado: el
+  // editor se siembra de `versions`, así que remontarlo con lo que dice el
+  // listado lo remonta antes de tiempo. Al activar una versión, el listado se
+  // refresca primero y las versiones después; con la key del listado el editor
+  // se quedaba con el contenido de la versión anterior mientras el subtítulo ya
+  // anunciaba el tamaño de la nueva, y guardar encima habría creado una versión
+  // con el contenido viejo.
+  const activeVersionId = (
+    versions.find((version) => version.activa) ?? versions[0]
+  )?.id;
   const [tipo, setTipo] = useState<string>(ALL);
   const [tag, setTag] = useState("");
   const [loading, setLoading] = useState(true);
@@ -68,11 +82,13 @@ export function DocumentsTab() {
     if (!response.ok) {
       setError(payload.error ?? "No se pudo cargar el histórico.");
       setVersions([]);
+      setVersionsFor(documentId);
       return;
     }
 
     setError(null);
     setVersions(payload.versiones);
+    setVersionsFor(documentId);
   }, []);
 
   useEffect(() => {
@@ -240,9 +256,9 @@ export function DocumentsTab() {
         </nav>
 
         <section>
-          {selected ? (
+          {selected && versionsFor === selected.id ? (
             <VersionedEditor
-              key={`${selected.id}:${selected.versionActiva?.id ?? "sin-activa"}`}
+              key={`${selected.id}:${activeVersionId ?? "sin-activa"}`}
               titulo={selected.titulo}
               subtitulo={`${selected.tipo} · ${selected.versionActiva?.tamano?.toLocaleString("es-ES") ?? 0} caracteres`}
               versiones={versions}
@@ -309,7 +325,9 @@ export function DocumentsTab() {
             </VersionedEditor>
           ) : (
             <p className="text-muted-foreground text-sm">
-              Elige un documento para ver su contenido y su histórico.
+              {selected
+                ? "Cargando el documento…"
+                : "Elige un documento para ver su contenido y su histórico."}
             </p>
           )}
         </section>

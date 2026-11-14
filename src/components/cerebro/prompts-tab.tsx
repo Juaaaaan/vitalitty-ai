@@ -20,6 +20,21 @@ export function PromptsTab() {
   const [prompts, setPrompts] = useState<PromptSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [versions, setVersions] = useState<BrainVersionWithContent[]>([]);
+  // De quién son las versiones que hay en estado. El editor se siembra de su
+  // versión activa al montarse, así que montarlo antes de que lleguen —o con
+  // las del prompt anterior— lo deja vacío o con el contenido equivocado.
+  const [versionsFor, setVersionsFor] = useState<string | null>(null);
+
+  // La identidad de la versión activa sale de `versions`, no del listado: el
+  // editor se siembra de `versions`, así que remontarlo con lo que dice el
+  // listado lo remonta antes de tiempo. Al activar una versión, el listado se
+  // refresca primero y las versiones después; con la key del listado el editor
+  // se quedaba con el contenido de la versión anterior mientras el subtítulo ya
+  // anunciaba el tamaño de la nueva, y guardar encima habría creado una versión
+  // con el contenido viejo.
+  const activeVersionId = (
+    versions.find((version) => version.activa) ?? versions[0]
+  )?.id;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +62,13 @@ export function PromptsTab() {
     if (!response.ok) {
       setError(payload.error ?? "No se pudo cargar el histórico.");
       setVersions([]);
+      setVersionsFor(promptId);
       return;
     }
 
     setError(null);
     setVersions(payload.versiones);
+    setVersionsFor(promptId);
   }, []);
 
   useEffect(() => {
@@ -147,11 +164,11 @@ export function PromptsTab() {
       <section>
         {error && <p className="text-destructive mb-3 text-sm">{error}</p>}
 
-        {selected ? (
+        {selected && versionsFor === selected.id ? (
           <VersionedEditor
             // Remontar al cambiar de prompt o de versión activa: así el editor
             // arranca del contenido vigente sin sincronizar estado en un efecto.
-            key={`${selected.id}:${selected.versionActiva?.id ?? "sin-activa"}`}
+            key={`${selected.id}:${activeVersionId ?? "sin-activa"}`}
             titulo={selected.nombre}
             subtitulo={
               selected.versionActiva?.activadaEn
@@ -164,7 +181,9 @@ export function PromptsTab() {
           />
         ) : (
           <p className="text-muted-foreground text-sm">
-            Elige un prompt para editarlo.
+            {selected
+              ? "Cargando el prompt…"
+              : "Elige un prompt para editarlo."}
           </p>
         )}
       </section>
