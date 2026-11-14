@@ -440,6 +440,55 @@ drop policy "Users can delete own knowledge documents"
   on public.documentos_conocimiento;
 ```
 
+## ✅ 10. Cache-hit y prompt sin redespliegue (10.4 y 10.2)
+
+Hechas el 2026-11-14 conduciendo la aplicación con Playwright. Las generaciones
+se lanzaron contra `/api/process-consultation` **desde la sesión del navegador**:
+la ruta recibe texto, no audio, así que no hizo falta volver a dictar. La
+transcripción fue corta a propósito —lo que se cachea es el bloque estático, y
+la transcripción va después, fuera de la caché—, lo que abarató y acortó cada
+prueba sin cambiar lo que se mide.
+
+### 10.4 — el cache-hit existe y es completo
+
+Dos generaciones seguidas, sin tocar el Cerebro entre ellas:
+
+|                            | A (en frío) | B (seguida) |
+| -------------------------- | ----------- | ----------- |
+| `cacheCreationInputTokens` | **84.426**  | 0           |
+| `cacheReadInputTokens`     | 0           | **84.426**  |
+| total                      | 43 s        | 41 s        |
+
+El bloque estático se reutiliza **entero**. Importa hacerlas seguidas: la caché
+de Anthropic dura unos 5 minutos, así que dos generaciones separadas por media
+hora dan `cacheRead: 0` por caducidad y no por cambio — un falso negativo que
+invalidaría la medida.
+
+### 10.2 — activar surte efecto sin desplegar
+
+Desde `/cerebro`, al prompt activo se le añadió una instrucción visible —escribir
+`MARCADOR-10-2` como primera línea de Observaciones—, se guardó como v4 y se
+activó. La generación siguiente, **sin tocar el servidor**:
+
+- la dieta **lleva el marcador**; las tres anteriores, generadas con la v3, no;
+- `cacheReadInputTokens: 0` y `cacheCreationInputTokens: 84.493`, es decir 67
+  tokens más que el bloque anterior: exactamente lo que añadía la instrucción.
+
+Eso cierra también la segunda mitad de 10.4: **activar una versión invalida la
+caché a propósito**, y la primera generación posterior se factura en frío.
+
+Después se restauró la v3 y se activó como v5: el prompt activo vuelve a medir
+5.846 caracteres con md5 `cd53639453541f910ccd0ce1d0a274b9`, idéntico al
+sembrado, y el histórico queda completo (v1 a v5).
+
+### Corrección a lo anotado en 10.1
+
+Allí se dijo que entraban los seis documentos. **No era así**: aquel paciente
+tenía la ficha vacía, así que solo entraron los tres de `siempre_incluir` —de ahí
+los 40.628 tokens—. Con ficha, cruzan también los tres por etiqueta y el bloque
+sube a 84.426. La conclusión de 10.1 no cambia; el alcance del vault en aquella
+generación, sí.
+
 ## 4. Comprobaciones en navegador (tareas 7.x, 8.x, 10.x)
 
 Con la migración aplicada y los prompts sembrados, `npm run dev` y:
