@@ -52,9 +52,15 @@ const PROMPT_COLUMNS =
 export async function listPrompts(supabase: Client): Promise<PromptSummary[]> {
   const { data, error } = await supabase
     .from("prompts")
-    // Sin `!inner`: un prompt todavía sin versiones tiene que aparecer en el
-    // listado, señalado como sin versión activa, en lugar de desaparecer.
-    .select(`${PROMPT_COLUMNS}, prompt_versiones(id, version)`)
+    // El nombre de la FK no es cosmético: hay dos relaciones entre `prompts` y
+    // `prompt_versiones` —la versión apunta a su prompt, el prompt a su versión
+    // activa— y sin decir por cuál unir PostgREST responde `PGRST201`. Unir por
+    // la activa trae además una sola fila en lugar de todo el histórico, y sin
+    // `!inner`, así que un prompt todavía sin versiones sigue apareciendo en el
+    // listado señalado como sin versión activa.
+    .select(
+      `${PROMPT_COLUMNS}, prompt_versiones!prompts_version_activa_id_fkey(id, version)`,
+    )
     .order("tipo", { ascending: true })
     .order("slug", { ascending: true });
 
@@ -62,11 +68,9 @@ export async function listPrompts(supabase: Client): Promise<PromptSummary[]> {
 
   return (data ?? []).map((row) => {
     const prompt = row as unknown as PromptRow & {
-      prompt_versiones: { id: string; version: number }[] | null;
+      prompt_versiones: { id: string; version: number } | null;
     };
-    const active = (prompt.prompt_versiones ?? []).find(
-      (version) => version.id === prompt.version_activa_id,
-    );
+    const active = prompt.prompt_versiones;
 
     return {
       id: prompt.id,
@@ -203,8 +207,11 @@ export async function listKnowledgeDocuments(
 ): Promise<KnowledgeDocumentSummary[]> {
   let query = supabase
     .from("documentos_conocimiento")
+    // Unido por la FK de la versión activa, por lo mismo que en `listPrompts`:
+    // sin nombrarla el embed es ambiguo, y nombrándola llega solo la versión
+    // activa en lugar del markdown de todas.
     .select(
-      `${DOCUMENT_COLUMNS}, documento_versiones(id, version, contenido_md)`,
+      `${DOCUMENT_COLUMNS}, documento_versiones!documentos_conocimiento_version_activa_id_fkey(id, version, contenido_md)`,
     )
     .order("tipo", { ascending: true })
     .order("slug", { ascending: true });
@@ -222,11 +229,9 @@ export async function listKnowledgeDocuments(
         id: string;
         version: number;
         contenido_md: string;
-      }[];
+      } | null;
     };
-    const active = document.documento_versiones?.find(
-      (version) => version.id === document.version_activa_id,
-    );
+    const active = document.documento_versiones;
 
     return {
       id: document.id,

@@ -389,4 +389,45 @@ describe("loadBrainContext — aislamiento por usuario", () => {
     expect(result.brain.documents).toEqual([]);
     expect(result.degraded).toBe(true);
   });
+
+  /**
+   * El fallo que se escapó a producción: entre cada cabecera y su tabla de
+   * versiones hay dos FK, así que un embed que no nombra por cuál unir lo
+   * rechaza PostgREST con `PGRST201`. Como el retrieval no lanza nunca, la
+   * generación se iba al camino degradado y la dieta salía sin Cerebro, sin que
+   * nada fallara a la vista.
+   *
+   * Los tests no lo vieron porque el doble embebía siempre por la FK del padre
+   * e ignoraba el hint. Ahora lo exige, y estos dos casos son la alarma: el
+   * primero prueba que el doble rechaza la forma ambigua, el segundo que la
+   * forma que usa el servicio sí resuelve.
+   */
+  describe("embeds that name their foreign key", () => {
+    it("rejects an embed that does not say which relationship to use", async () => {
+      const fake = seeded();
+
+      const { data, error } = await asClient(fake)
+        .from("documentos_conocimiento")
+        .select("slug, documento_versiones(id, contenido_md)");
+
+      expect(data).toBeNull();
+      expect((error as { code?: string } | null)?.code).toBe("PGRST201");
+    });
+
+    it("resolves the active version when the foreign key is named", async () => {
+      const fake = seeded();
+
+      const { data, error } = await asClient(fake)
+        .from("documentos_conocimiento")
+        .select(
+          "slug, documento_versiones!documentos_conocimiento_version_activa_id_fkey(id, contenido_md)",
+        );
+
+      expect(error).toBeNull();
+      // Uno a uno: llega la versión activa y solo ella, no un array de versiones.
+      const rows = data as { documento_versiones: unknown }[];
+      expect(rows.length).toBeGreaterThan(0);
+      expect(Array.isArray(rows[0].documento_versiones)).toBe(false);
+    });
+  });
 });

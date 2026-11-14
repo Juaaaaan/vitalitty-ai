@@ -27,14 +27,45 @@ const VERSION_PARENT: Partial<Record<TableName, string>> = {
   documento_versiones: "documento_id",
 };
 
-/** Nombre embebido en un select -> cómo se une con la tabla padre. */
-const EMBEDS: Record<string, { table: TableName; foreignKey: string }> = {
-  prompt_versiones: { table: "prompt_versiones", foreignKey: "prompt_id" },
-  documento_versiones: {
+/**
+ * Nombre embebido en un select -> cómo se une con la tabla padre.
+ *
+ * Hay **dos** relaciones entre cada cabecera y su tabla de versiones: la versión
+ * apunta a su cabecera (`documento_id`) y la cabecera apunta a su versión activa
+ * (`version_activa_id`). PostgREST no elige por ti: un embed sin nombre de FK
+ * se rechaza con `PGRST201`, así que el doble tiene que exigir el hint igual que
+ * la base real. Cuando no lo hacía, la query ambigua pasaba los tests y fallaba
+ * en producción, que es exactamente lo que ocurrió.
+ */
+type Embed = {
+  table: TableName;
+  /** Columna de la versión que apunta a la cabecera (relación uno a muchos). */
+  foreignKey?: string;
+  /** Columna de la cabecera que apunta a una sola versión (relación uno a uno). */
+  parentColumn?: string;
+};
+
+const EMBEDS: Record<string, Embed> = {
+  "prompt_versiones!prompt_versiones_prompt_id_fkey": {
+    table: "prompt_versiones",
+    foreignKey: "prompt_id",
+  },
+  "prompt_versiones!prompts_version_activa_id_fkey": {
+    table: "prompt_versiones",
+    parentColumn: "version_activa_id",
+  },
+  "documento_versiones!documento_versiones_documento_id_fkey": {
     table: "documento_versiones",
     foreignKey: "documento_id",
   },
+  "documento_versiones!documentos_conocimiento_version_activa_id_fkey": {
+    table: "documento_versiones",
+    parentColumn: "version_activa_id",
+  },
 };
+
+/** Tablas que no se pueden embeber sin nombrar la FK. */
+const AMBIGUOUS_EMBEDS = ["prompt_versiones", "documento_versiones"] as const;
 
 export type FakeTables = Partial<Record<TableName, Row[]>>;
 
@@ -111,6 +142,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private orFilter: string | null = null;
   private orders: { column: string; ascending: boolean }[] = [];
   private embeds: string[] = [];
+  private ambiguousEmbed: string | null = null;
   private columns: string[] = [];
   private mode: "select" | "insert" | "update" = "select";
   private payload: Row | null = null;
@@ -194,12 +226,22 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
   private parseSelector(selector: string) {
     for (const [name] of Object.entries(EMBEDS)) {
-      if (new RegExp(`${name}\\s*(!inner)?\\(`).test(selector)) {
-        this.embeds.push(name);
+      if (selector.includes(`${name}(`)) this.embeds.push(name);
+    }
+
+    // Un embed sin nombre de FK sobre una tabla con dos relaciones es lo que
+    // PostgREST rechaza: aquí se anota para devolver su mismo error.
+    for (const table of AMBIGUOUS_EMBEDS) {
+      if (
+        new RegExp(`(^|[,(\\s])${table}\\s*\\(`).test(selector) &&
+        !this.embeds.some((name) => name.startsWith(`${table}!`))
+      ) {
+        this.ambiguousEmbed = table;
       }
     }
+
     this.columns = selector
-      .replace(/\w+\s*(!inner)?\([^)]*\)/g, "")
+      .replace(/[\w!]+\s*\([^)]*\)/g, "")
       .split(",")
       .map((column) => column.trim())
       .filter((column) => column.length > 0 && column !== "*");
@@ -259,6 +301,18 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
       };
     }
 
+    if (this.ambiguousEmbed) {
+      // El mismo error que da PostgREST: hay dos FK entre las dos tablas y el
+      // select no dice por cuál unir.
+      return {
+        data: null,
+        error: {
+          code: "PGRST201",
+          message: `Could not embed because more than one relationship was found for '${this.table}' and '${this.ambiguousEmbed}'`,
+        },
+      };
+    }
+
     const rows = this.matching().map((row) => this.project(row));
     return { data: rows, error: null };
   }
@@ -274,10 +328,24 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
         : { ...row };
 
     for (const name of this.embeds) {
-      const { table, foreignKey } = EMBEDS[name];
-      projected[name] = (this.store[table] ?? []).filter(
-        (child) =>
-          child[foreignKey] === row.id && child.created_by === this.userId,
+      const { table, foreignKey, parentColumn } = EMBEDS[name];
+      const children = (this.store[table] ?? []).filter(
+        (child) => child.created_by === this.userId,
+      );
+      // El nombre de la FK desaparece de la respuesta: PostgREST devuelve la
+      // clave sin el hint.
+      const key = name.split("!")[0];
+
+      if (parentColumn) {
+        // Uno a uno: la cabecera apunta a una sola versión, así que la respuesta
+        // trae un objeto, o `null` si no hay ninguna.
+        projected[key] =
+          children.find((child) => child.id === row[parentColumn]) ?? null;
+        continue;
+      }
+
+      projected[key] = children.filter(
+        (child) => child[foreignKey as string] === row.id,
       );
     }
 

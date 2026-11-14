@@ -87,16 +87,25 @@ export function profileTagsFromMemory(memory: PatientMemory | null): string[] {
   return [...new Set(tags)].sort();
 }
 
+/**
+ * Las dos queries embeben la versión activa **nombrando la FK**
+ * (`!…_version_activa_id_fkey`). No es cosmético: entre cada cabecera y su tabla
+ * de versiones hay dos relaciones —la versión apunta a su cabecera, la cabecera
+ * a su versión activa—, y un embed sin nombrar la FK lo rechaza PostgREST con
+ * `PGRST201`. Ese fallo no se ve en desarrollo: el retrieval no lanza nunca, así
+ * que la generación se iba al camino degradado y salía una dieta sin Cerebro.
+ *
+ * Nombrar esa FK además hace la query uno a uno: llega la versión activa y solo
+ * ella, en lugar de todas las versiones del documento con su markdown entero.
+ */
 type DocumentRow = {
   slug: string;
   titulo: string;
-  version_activa_id: string | null;
-  documento_versiones: { id: string; contenido_md: string }[] | null;
+  documento_versiones: { id: string; contenido_md: string } | null;
 };
 
 type PromptRow = {
-  version_activa_id: string | null;
-  prompt_versiones: { id: string; contenido: string }[] | null;
+  prompt_versiones: { id: string; contenido: string } | null;
 };
 
 /**
@@ -178,16 +187,14 @@ async function readActivePrompt(
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from("prompts")
-    .select("version_activa_id, prompt_versiones(id, contenido)")
+    .select("prompt_versiones!prompts_version_activa_id_fkey(id, contenido)")
     .eq("tipo", tipo);
 
   if (error)
     throw new Error(`Reading the active prompt failed: ${error.message}`);
 
   for (const row of (data ?? []) as unknown as PromptRow[]) {
-    const active = (row.prompt_versiones ?? []).find(
-      (version) => version.id === row.version_activa_id,
-    );
+    const active = row.prompt_versiones;
     if (active?.contenido?.trim()) return active.contenido;
   }
 
@@ -204,7 +211,7 @@ async function readDocuments(
   let query = supabase
     .from("documentos_conocimiento")
     .select(
-      "slug, titulo, version_activa_id, documento_versiones(id, contenido_md)",
+      "slug, titulo, documento_versiones!documentos_conocimiento_version_activa_id_fkey(id, contenido_md)",
     );
 
   query =
@@ -228,9 +235,7 @@ async function readDocuments(
   const bySlug = new Map<string, BrainDocument>();
 
   for (const row of rows) {
-    const active = (row.documento_versiones ?? []).find(
-      (version) => version.id === row.version_activa_id,
-    );
+    const active = row.documento_versiones;
     // Sin versión activa no entra, aunque su metadata encaje.
     if (!active?.contenido_md?.trim()) continue;
     if (bySlug.has(row.slug)) continue;
