@@ -1,10 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, StarIcon, UploadIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -39,6 +62,7 @@ export function DocumentsTab() {
   // De quién son las versiones que hay en estado, por lo mismo que en la
   // pestaña de prompts: el editor se siembra al montarse.
   const [versionsFor, setVersionsFor] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   // La identidad de la versión activa sale de `versions`, no del listado: el
   // editor se siembra de `versions`, así que remontarlo con lo que dice el
@@ -163,10 +187,63 @@ export function DocumentsTab() {
 
     await loadDocuments();
   };
-
   return (
-    <div className="space-y-6">
-      <DocumentUpload onUploaded={loadDocuments} />
+    <div className="space-y-5">
+      {/* Lo primero es el número que decide el coste: lo que entra en TODAS las
+          generaciones. Antes solo aparecía al pasar el umbral, y hasta entonces
+          no había forma de saber por dónde ibas. */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
+        <div className="min-w-0 space-y-1">
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            Entra en todas las generaciones
+          </p>
+          <p className="text-2xl leading-none font-semibold tabular-nums">
+            {alwaysIncludedSize.toLocaleString("es-ES")}
+            <span className="text-muted-foreground ml-1 text-sm font-normal">
+              de {ALWAYS_INCLUDED_SIZE_WARNING_CHARS.toLocaleString("es-ES")}{" "}
+              caracteres recomendados
+            </span>
+          </p>
+          <Progress
+            value={Math.min(
+              100,
+              (alwaysIncludedSize / ALWAYS_INCLUDED_SIZE_WARNING_CHARS) * 100,
+            )}
+            className={
+              alwaysIncludedSize > ALWAYS_INCLUDED_SIZE_WARNING_CHARS
+                ? "h-1.5 w-64 [&>div]:bg-amber-500"
+                : "h-1.5 w-64"
+            }
+          />
+        </div>
+
+        {/* La subida vive en un diálogo: es una acción de vez en cuando, y
+            abierta en la página empujaba la tabla fuera de la primera pantalla. */}
+        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UploadIcon className="mr-1 size-4" />
+              Subir documento
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Subir documento</DialogTitle>
+              <DialogDescription>
+                Solo Markdown. El documento entra en contexto cuando sus
+                etiquetas cruzan con la ficha del paciente, o siempre si lo
+                marcas.
+              </DialogDescription>
+            </DialogHeader>
+            <DocumentUpload
+              onUploaded={async () => {
+                await loadDocuments();
+                setUploadOpen(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {alwaysIncludedSize > ALWAYS_INCLUDED_SIZE_WARNING_CHARS && (
         <p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
@@ -181,81 +258,155 @@ export function DocumentsTab() {
         </p>
       )}
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="filtro-tipo">Tipo</Label>
-          <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger id="filtro-tipo" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Todos</SelectItem>
-              {KNOWLEDGE_DOCUMENT_TYPES.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Los filtros, pegados a la tabla que filtran, con el recuento al lado:
+          antes flotaban entre el formulario de subida y la lista. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={tipo} onValueChange={setTipo}>
+          <SelectTrigger id="filtro-tipo" aria-label="Tipo" className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todos</SelectItem>
+            {KNOWLEDGE_DOCUMENT_TYPES.map((value) => (
+              <SelectItem key={value} value={value}>
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <div className="space-y-1">
-          <Label htmlFor="filtro-tag">Etiqueta</Label>
-          <Input
-            id="filtro-tag"
-            value={tag}
-            onChange={(event) => setTag(event.target.value)}
-            placeholder="celiaquia"
-            className="w-48"
-          />
-        </div>
+        <Input
+          id="filtro-tag"
+          aria-label="Etiqueta"
+          value={tag}
+          onChange={(event) => setTag(event.target.value)}
+          placeholder="Filtrar por etiqueta…"
+          className="w-56"
+        />
+
+        <span className="text-muted-foreground text-sm">
+          {documents.length}{" "}
+          {documents.length === 1 ? "documento" : "documentos"}
+        </span>
       </div>
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-        <nav aria-label="Documentos" className="space-y-1">
-          {loading && documents.length === 0 && (
-            <Skeleton className="h-40 w-full" />
-          )}
+      {loading && documents.length === 0 ? (
+        <Skeleton className="h-64 w-full" />
+      ) : documents.length === 0 ? (
+        <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+          No hay documentos con ese filtro.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Documento</TableHead>
+                <TableHead className="w-28">Tipo</TableHead>
+                <TableHead className="w-24 text-right">Tamaño</TableHead>
+                <TableHead className="w-16">Versión</TableHead>
+                {/* Las etiquetas se esconden cuando no hay sitio: son el dato
+                    que menos se lee de un vistazo —para eso está el filtro— y
+                    si se quedan, el título, que es lo que identifica la fila,
+                    se trunca a "Biblioteca M…". En la hoja lateral están todas. */}
+                <TableHead className="hidden w-[16rem] xl:table-cell">
+                  Etiquetas
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documents.map((document) => (
+                <TableRow
+                  key={document.id}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={document.titulo}
+                  data-state={
+                    document.id === selectedId ? "selected" : undefined
+                  }
+                  className="cursor-pointer"
+                  onClick={() => setSelectedId(document.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedId(document.id);
+                    }
+                  }}
+                >
+                  {/* `max-w-0` + `truncate`: en una celda de tabla es lo que
+                      obliga al título largo a encogerse en vez de empujar la
+                      fila y desbordarse sobre lo de al lado. */}
+                  <TableCell className="max-w-0 truncate font-medium">
+                    <span className="flex items-center gap-2">
+                      {document.siempreIncluir && (
+                        <StarIcon
+                          aria-label="Entra en todas las generaciones"
+                          className="size-3.5 shrink-0 fill-amber-500 text-amber-500"
+                        />
+                      )}
+                      <span className="truncate" title={document.titulo}>
+                        {document.titulo}
+                      </span>
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {document.tipo}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {document.versionActiva?.tamano?.toLocaleString("es-ES") ??
+                      "—"}
+                  </TableCell>
+                  <TableCell>
+                    {document.versionActiva ? (
+                      <Badge variant="outline">
+                        v{document.versionActiva.version}
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">sin activar</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    <span className="flex flex-wrap gap-1">
+                      {document.tags.length === 0 && (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                      {document.tags.map((documentTag) => (
+                        <Badge
+                          key={documentTag}
+                          variant="secondary"
+                          className="font-normal"
+                        >
+                          {documentTag}
+                        </Badge>
+                      ))}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-          {!loading && documents.length === 0 && (
-            <p className="text-muted-foreground text-sm">
-              No hay documentos con ese filtro.
-            </p>
-          )}
+      {/* El editor en una hoja lateral: así tiene la altura entera de la
+          pantalla para un documento de 39.506 caracteres, y la tabla no pierde
+          ancho por un panel que la mayor parte del tiempo está vacío. */}
+      <Sheet
+        open={selectedId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full gap-0 overflow-y-auto p-6 sm:max-w-3xl"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>{selected?.titulo ?? "Documento"}</SheetTitle>
+          </SheetHeader>
 
-          {documents.map((document) => (
-            <Button
-              key={document.id}
-              variant={document.id === selectedId ? "secondary" : "ghost"}
-              className="h-auto w-full flex-col items-start gap-1 py-2"
-              onClick={() => setSelectedId(document.id)}
-            >
-              <span className="truncate font-medium">{document.titulo}</span>
-              <span className="flex flex-wrap gap-1">
-                <Badge variant="outline">{document.tipo}</Badge>
-                {document.siempreIncluir && (
-                  <Badge variant="secondary">siempre</Badge>
-                )}
-                {document.versionActiva ? (
-                  <Badge variant="outline">
-                    v{document.versionActiva.version}
-                  </Badge>
-                ) : (
-                  <Badge variant="destructive">sin activar</Badge>
-                )}
-                {document.tags.map((documentTag) => (
-                  <Badge key={documentTag} variant="outline">
-                    {documentTag}
-                  </Badge>
-                ))}
-              </span>
-            </Button>
-          ))}
-        </nav>
-
-        <section>
           {selected && versionsFor === selected.id ? (
             <VersionedEditor
               key={`${selected.id}:${activeVersionId ?? "sin-activa"}`}
@@ -287,12 +438,11 @@ export function DocumentsTab() {
                   </Select>
                 </div>
 
-                <div className="space-y-1">
+                <div className="min-w-48 flex-1 space-y-1">
                   <Label htmlFor="meta-tags">Etiquetas</Label>
                   <Input
                     id="meta-tags"
                     defaultValue={selected.tags.join(", ")}
-                    className="w-64"
                     onBlur={(event) =>
                       patchMetadata({
                         tags: event.target.value
@@ -325,13 +475,11 @@ export function DocumentsTab() {
             </VersionedEditor>
           ) : (
             <p className="text-muted-foreground text-sm">
-              {selected
-                ? "Cargando el documento…"
-                : "Elige un documento para ver su contenido y su histórico."}
+              Cargando el documento…
             </p>
           )}
-        </section>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -80,70 +80,98 @@ export function VersionedEditor({
       )
     : undefined;
 
+  const dirty = active ? draft !== active.contenido : draft.trim().length > 0;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold">{titulo}</h2>
+      {/* El título manda sobre su fila: `min-w-0` + truncado, porque un nombre
+          largo como "PROTOCOLO MAESTRO PROMPTS EDITOR VITALITTY v2" medía 454 px
+          en una columna de 320 y se metía encima del panel de al lado. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <h2
+            className="truncate text-lg leading-tight font-semibold"
+            title={titulo}
+          >
+            {titulo}
+          </h2>
           {subtitulo && (
-            <p className="text-muted-foreground text-sm">{subtitulo}</p>
+            <p className="text-muted-foreground truncate text-sm">
+              {subtitulo}
+            </p>
           )}
         </div>
         {active ? (
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="shrink-0">
             <CheckCircle2Icon className="mr-1 size-3" />
-            Versión activa: v{active.version}
+            Activa: v{active.version}
           </Badge>
         ) : (
-          <Badge variant="outline">Sin versión activa</Badge>
+          <Badge variant="outline" className="shrink-0">
+            Sin versión activa
+          </Badge>
         )}
       </div>
 
       {children}
 
+      {/* Las acciones van ANTES del contenido. Con el prompt de 5.846 caracteres
+          dentro, ponerlas debajo las echaba fuera del pliegue: para activar una
+          versión había que recorrer el documento entero. */}
+      <div className="bg-background/95 sticky top-0 z-10 space-y-2 py-2 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            disabled={busy || draft.trim().length === 0 || !dirty}
+            onClick={() =>
+              run(
+                () => onSave(draft, nota),
+                "Guardado como versión nueva. No está activa todavía.",
+              )
+            }
+          >
+            Guardar
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy || !versiones[0] || versiones[0].activa}
+            onClick={() =>
+              run(
+                () => onActivate(versiones[0].id),
+                `Versión v${versiones[0]?.version} activada. La siguiente generación la usará.`,
+              )
+            }
+          >
+            Activar la última versión
+          </Button>
+
+          {dirty && (
+            <span className="text-muted-foreground text-xs">
+              Sin guardar · {draft.length.toLocaleString("es-ES")} caracteres
+            </span>
+          )}
+        </div>
+
+        <Input
+          aria-label="Nota de cambio"
+          placeholder="Nota de cambio (opcional): por qué lo editas"
+          value={nota}
+          onChange={(event) => setNota(event.target.value)}
+          className="h-8 text-sm"
+        />
+
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        {notice && <p className="text-sm text-emerald-600">{notice}</p>}
+      </div>
+
+      {/* Altura acotada y scroll propio: el documento no empuja al histórico. */}
       <Textarea
         aria-label="Contenido"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
-        rows={18}
-        className="font-mono text-xs"
+        className="h-[clamp(18rem,45vh,34rem)] resize-y font-mono text-xs leading-relaxed"
       />
-
-      <Input
-        aria-label="Nota de cambio"
-        placeholder="Nota de cambio (opcional): por qué lo editas"
-        value={nota}
-        onChange={(event) => setNota(event.target.value)}
-      />
-
-      <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={busy || draft.trim().length === 0}
-          onClick={() =>
-            run(
-              () => onSave(draft, nota),
-              "Guardado como versión nueva. No está activa todavía.",
-            )
-          }
-        >
-          Guardar
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={busy || !versiones[0] || versiones[0].activa}
-          onClick={() =>
-            run(
-              () => onActivate(versiones[0].id),
-              `Versión v${versiones[0]?.version} activada. La siguiente generación la usará.`,
-            )
-          }
-        >
-          Activar la última versión
-        </Button>
-      </div>
-
-      {error && <p className="text-destructive text-sm">{error}</p>}
-      {notice && <p className="text-sm text-emerald-600">{notice}</p>}
 
       <Separator />
 

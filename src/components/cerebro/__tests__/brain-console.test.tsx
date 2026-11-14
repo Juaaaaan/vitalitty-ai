@@ -63,6 +63,13 @@ describe("BrainConsole", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Documentación" }));
 
+    // La subida vive en un diálogo: en la pestaña solo está su botón, y la
+    // zona de arrastre aparece al abrirlo.
+    const abrir = await screen.findByRole("button", {
+      name: /Subir documento/,
+    });
+    fireEvent.click(abrir);
+
     expect(
       await screen.findByText(/Arrastra aquí el documento en Markdown/),
     ).toBeDefined();
@@ -72,7 +79,7 @@ describe("BrainConsole", () => {
     render(<BrainConsole />);
 
     expect(await screen.findByText("v1")).toBeDefined();
-    expect(await screen.findByText(/Versión activa: v1/)).toBeDefined();
+    expect(await screen.findByText(/Activa: v1/)).toBeDefined();
   });
 
   /**

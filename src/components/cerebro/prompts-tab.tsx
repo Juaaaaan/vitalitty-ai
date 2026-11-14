@@ -125,8 +125,11 @@ export function PromptsTab() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
-      <nav aria-label="Prompts" className="space-y-4">
+    <div className="space-y-4">
+      {/* Selector arriba, no columna lateral: hoy hay un solo prompt y una
+          columna de 18rem para una fila deja el editor estrecho sin ganar nada.
+          Con varios, esto crece a una fila de botones sin cambiar el editor. */}
+      <nav aria-label="Prompts" className="flex flex-wrap items-center gap-2">
         {grouped.length === 0 && (
           <p className="text-muted-foreground text-sm">
             No hay prompts todavía. Se siembran con{" "}
@@ -136,24 +139,27 @@ export function PromptsTab() {
         )}
 
         {grouped.map(([tipo, group]) => (
-          <div key={tipo} className="space-y-1">
-            <p className="text-muted-foreground text-xs font-semibold uppercase">
+          <div key={tipo} className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground text-[0.7rem] font-semibold tracking-wide uppercase">
               {tipo}
-            </p>
+            </span>
             {group.map((prompt) => (
               <Button
                 key={prompt.id}
+                size="sm"
                 variant={prompt.id === selectedId ? "secondary" : "ghost"}
-                className="w-full justify-between"
+                className="max-w-[20rem] justify-between gap-2"
                 onClick={() => setSelectedId(prompt.id)}
               >
                 <span className="truncate">{prompt.nombre}</span>
                 {prompt.versionActiva ? (
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="shrink-0">
                     v{prompt.versionActiva.version}
                   </Badge>
                 ) : (
-                  <Badge variant="destructive">sin activar</Badge>
+                  <Badge variant="destructive" className="shrink-0">
+                    sin activar
+                  </Badge>
                 )}
               </Button>
             ))}
