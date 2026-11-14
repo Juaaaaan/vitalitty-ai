@@ -66,7 +66,7 @@
 
 ## 10. Verificación de integración
 
-- [ ] 10.1 Verificar en navegador que una generación con el Cerebro recién sembrado, sin que nadie haya editado nada, produce una dieta equivalente en estructura y calidad a la actual, y que su vista previa en `/diets` se reconoce como estructurada
+- [x] 10.1 Verificar en navegador que una generación con el Cerebro recién sembrado, sin que nadie haya editado nada, produce una dieta equivalente en estructura y calidad a la actual, y que su vista previa en `/diets` se reconoce como estructurada
 - [ ] 10.2 Verificar en navegador que activar una versión nueva del prompt de generación se refleja en la siguiente generación, sin redespliegue
 - [ ] 10.3 Verificar con la tabla de documentos vacía, y después provocando un fallo de la query, que la generación se completa igualmente por el camino del fallback y que la consulta queda guardada con su dieta
 - [ ] 10.4 Medir el cache-hit del bloque estático en dos generaciones consecutivas sin cambios en el Cerebro, y de nuevo tras activar una versión, y anotar que la primera posterior al cambio se factura en frío y las siguientes vuelven a cachear

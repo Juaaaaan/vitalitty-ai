@@ -113,9 +113,16 @@ insertar, vuelve a leer de la base de datos y aborta si lo guardado no coincide
 carácter a carácter con la constante. Si imprime `✓ generacion-dieta: v1 active
 … identical to the constant`, la tarea 2.2 está verificada.
 
-## 3. Cargar el vault (tarea 9.2) — en espera, a propósito
+## ✅ 3. Comprobación 10.1 hecha — el vault ya puede entrar
 
-**Decidido el 2026-10-03: la carga espera a que la comprobación 10.1 esté hecha.**
+**2026-11-14: generada una dieta en `/diets` con el Cerebro recién sembrado (solo
+el prompt v1, 0 documentos) y revisada por el usuario: correcta y equivalente a
+las de siempre.** Esa es la referencia limpia de "una dieta como las de hoy", y
+es lo que hacía de puerta a la carga del vault. El paso 1 del orden acordado
+queda cerrado; sigue el 2 (limpiar el recetario de 141 platos).
+
+### Por qué la carga esperaba
+
 En cuanto el vault entre, las dietas cambian — el protocolo del editor está
 planeado como "siempre incluir" (39.506 caracteres en toda generación) y los
 demás entran en cuanto sus etiquetas (`hipertrofia`, `microbiota`, `pms`…) cruzan
@@ -124,8 +131,9 @@ de "una dieta como las de hoy".
 
 Orden acordado:
 
-1. Generar una dieta en `/diets` con solo el prompt sembrado y 0 documentos, y
-   confirmar que sale equivalente a las de siempre (10.1).
+1. ~~Generar una dieta en `/diets` con solo el prompt sembrado y 0 documentos, y
+   confirmar que sale equivalente a las de siempre (10.1).~~ **Hecho el
+   2026-11-14.**
 2. Arreglar el recetario de 141 platos según `vault-review.md`.
 3. Cargar: `node --no-warnings --env-file=.env.local scripts/load-vault.ts --user <id>`.
 4. Generar otra vez y ver el efecto del conocimiento.
@@ -174,7 +182,7 @@ Con la migración aplicada y los prompts sembrados, `npm run dev` y:
    pasar de 120.000 caracteres (el umbral de `ALWAYS_INCLUDED_SIZE_WARNING_CHARS`,
    fijado sobre los 181.660 del vault). Debe salir el aviso ámbar y la acción
    completarse igual.
-9. **10.1** — Genera una dieta en `/diets` sin haber tocado nada del Cerebro. El
+9. ~~**10.1**~~ **hecho el 2026-11-14** — Genera una dieta en `/diets` sin haber tocado nada del Cerebro. El
    documento debe salir equivalente al de siempre y su vista previa reconocerse
    como estructurada (no en modo crudo).
 10. **10.2** — Activa una versión nueva del prompt con un cambio visible (por
