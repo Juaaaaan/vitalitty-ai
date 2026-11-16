@@ -52,6 +52,10 @@ context: |
     en navegador del tiempo hasta el primer token (tarea 8.2 de ese cambio).
   - app/actions/ ya no existe: save-consultation se retiró y upload-diet pasó a
     POST /api/upload-diet. No crear Server Actions nuevas.
+  - Choque de email: cerrado (cambio 2026-11-16-resolver-choque-email-paciente).
+    Se detecta antes de escribir, la dieta no se pierde y el usuario elige una de
+    tres salidas. POST /api/resolve-identity-conflict no importa el motor de
+    generación, así que un reintento no cuesta otra pasada.
   - El audio no se guarda: se transcribe y se descarta. Solo se persiste la
     transcripción. Storage tiene un único bucket privado, diets.
 
