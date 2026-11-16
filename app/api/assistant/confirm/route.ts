@@ -12,16 +12,18 @@ import { WRITE_TOOLS } from "@/services/assistant/write-tools";
  * Ejecuta una acción que el usuario ha confirmado.
  *
  * Es el ÚNICO sitio donde el asistente escribe, y el único donde genera una
- * dieta o renderiza un PDF. Por eso tiene su propio `maxDuration`: una
- * generación completa ya roza los 60 s y no puede compartir presupuesto con el
- * bucle de herramientas.
+ * dieta o renderiza un PDF. Por eso tiene su propio `maxDuration`, y por eso
+ * sube con el de la generación: una completa midió 86 s con el dictado largo y
+ * el Cerebro dentro, así que no cabía en 60 ni podía compartir presupuesto con
+ * el bucle de herramientas. **Requiere un plan de Vercel que admita más de
+ * 60 s.**
  *
  * No se fía de nada de lo que llega: revalida que la herramienta existe y
  * escribe, que los argumentos son válidos y —vía RLS, dentro del ejecutor— que
  * el paciente es del usuario. Que la acción viniera de una propuesta no cuenta
  * como permiso: el cliente podría mandar otra cosa.
  */
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 export async function POST(request: NextRequest) {
   const { tool, input } = (await request.json()) as {

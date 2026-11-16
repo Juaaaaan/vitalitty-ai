@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CalendarDays, SquareTerminal } from "lucide-react";
+import { Bot, Brain, CalendarDays, SquareTerminal } from "lucide-react";
 import { NavMain } from "@/components/layout/nav/nav-main";
 import { NavUser } from "@/components/layout/nav/nav-user";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -48,6 +48,17 @@ const data = {
         {
           title: "Preguntar",
           url: "/asistente",
+        },
+      ],
+    },
+    {
+      title: "Cerebro",
+      url: "#",
+      icon: Brain,
+      items: [
+        {
+          title: "Prompts y documentación",
+          url: "/cerebro",
         },
       ],
     },

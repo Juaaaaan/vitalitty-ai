@@ -1,6 +1,4 @@
-<img src="media/image1.png" style="width:3.25in;height:2.82755in" />
-
-BANCO MAESTRO DE PLATOS
+# Banco maestro de platos
 
 Recetario operativo Vitalitty · combinaciones sencillas, proteicas y fáciles de integrar en planes nutricionales
 
@@ -8,50 +6,45 @@ Recetario operativo Vitalitty · combinaciones sencillas, proteicas y fáciles d
 
 Edición 2026
 
-Cómo utilizar este banco
+## Cómo utilizar este banco
 
-> • No es un recetario de pasos de cocina: cada ficha muestra únicamente una combinación práctica de alimentos.
->
-> • Las cantidades, calorías y gramajes se ajustan después al objetivo y al plan individual del paciente.
->
-> • Todas las propuestas incluyen una fuente proteica clara. Los hidratos, grasas y guarniciones pueden aumentarse o reducirse según el contexto.
->
-> • Las técnicas priorizadas son plancha, horno, air fryer, cocción, vapor y preparaciones en frío.
->
-> • La etiqueta estacional es orientativa para España y también sirve como guía culinaria: platos frescos en verano y platos más templados o calientes en invierno.
->
-> • Para patologías, embarazo, alergias, intolerancias o necesidades digestivas, se aplican las adaptaciones clínicas correspondientes antes de usar la propuesta.
+- No es un recetario de pasos de cocina: cada ficha muestra únicamente una combinación práctica de alimentos.
+- Las cantidades, calorías y gramajes se ajustan después al objetivo y al plan individual del paciente.
+- Todas las propuestas incluyen una fuente proteica clara. Los hidratos, grasas y guarniciones pueden aumentarse o reducirse según el contexto.
+- Las técnicas priorizadas son plancha, horno, air fryer, cocción, vapor y preparaciones en frío.
+- La etiqueta estacional es orientativa para España y también sirve como guía culinaria: platos frescos en verano y platos más templados o calientes en invierno.
+- Para patologías, embarazo, alergias, intolerancias o necesidades digestivas, se aplican las adaptaciones clínicas correspondientes antes de usar la propuesta.
 
 **Leyenda de temporada:** Verano = fresco / frío · Invierno = templado / caliente · Todo el año = fácil de rotar durante todo el año.
 
-Índice de secciones
+## Índice de secciones
 
-1\. Ensaladas completas y proteicas (15 ideas)
+1. Ensaladas completas y proteicas (15 ideas)
 
-2\. Legumbres: guisos, salteados y ensaladas (15 ideas)
+2. Legumbres: guisos, salteados y ensaladas (15 ideas)
 
-3\. Carne blanca con verduras (15 ideas)
+3. Carne blanca con verduras (15 ideas)
 
-4\. Pescado blanco y marisco magro con verduras (15 ideas)
+4. Pescado blanco y marisco magro con verduras (15 ideas)
 
-5\. Carne roja con verduras (12 ideas)
+5. Carne roja con verduras (12 ideas)
 
-6\. Pescado azul con verduras (12 ideas)
+6. Pescado azul con verduras (12 ideas)
 
-7\. Tostas y desayunos salados proteicos (15 ideas)
+7. Tostas y desayunos salados proteicos (15 ideas)
 
-8\. Cremas y sopas: versión verano e invierno (15 ideas)
+8. Cremas y sopas: versión verano e invierno (15 ideas)
 
-9\. Proteína vegetal: platos sencillos (12 ideas)
+9. Proteína vegetal: platos sencillos (12 ideas)
 
-10\. Platos únicos con hidrato + proteína + verdura (15 ideas)
+10. Platos únicos con hidrato + proteína + verdura (15 ideas)
 
-1\. Ensaladas completas y proteicas
+## 1. Ensaladas completas y proteicas
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                       | **Combinación de alimentos**                                                        | **Técnica**           | **Temporada**        |
-|---------------------------------|-------------------------------------------------------------------------------------|-----------------------|----------------------|
+| ------------------------------- | ----------------------------------------------------------------------------------- | --------------------- | -------------------- |
 | **Campera proteica clásica**    | Patata cocida + atún + huevo cocido + tomate + pimiento + cebolla + aceitunas.      | Cocción / sin cocción | **Verano**           |
 | **Arroz, salmón y mango**       | Arroz + salmón + mango + pepino + aguacate + canónigos.                             | Plancha / sin cocción | **Verano**           |
 | **Quinoa, pollo y naranja**     | Quinoa + pollo + naranja + espinaca baby + zanahoria + nueces.                      | Plancha               | **Todo el año**      |
@@ -68,12 +61,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Tomate, mozzarella y pavo**   | Tomate + mozzarella + pavo a la plancha + melón + canónigos + pistachos.            | Plancha / sin cocción | **Verano**           |
 | **Remolacha y salmón ahumado**  | Remolacha + salmón ahumado + naranja + espinacas + queso fresco + nueces.           | Sin cocción           | **Otoño-invierno**   |
 
-2\. Legumbres: guisos, salteados y ensaladas
+## 2. Legumbres: guisos, salteados y ensaladas
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                             | **Combinación de alimentos**                                        | **Técnica**      | **Temporada**      |
-|---------------------------------------|---------------------------------------------------------------------|------------------|--------------------|
+| ------------------------------------- | ------------------------------------------------------------------- | ---------------- | ------------------ |
 | **Lentejas con pollo y patata**       | Lentejas + pollo + patata + zanahoria + puerro + tomate.            | Guiso            | **Invierno**       |
 | **Garbanzos con espinacas y bacalao** | Garbanzos + bacalao + espinacas + tomate + huevo cocido.            | Guiso            | **Invierno**       |
 | **Alubias blancas con pavo**          | Alubias blancas + pavo + zanahoria + calabacín + puerro.            | Guiso            | **Invierno**       |
@@ -90,12 +83,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Lentejas con pavo y manzana**       | Lentejas + pavo + manzana + zanahoria + espinaca baby + nueces.     | Ensalada         | **Otoño**          |
 | **Garbanzos con langostinos**         | Garbanzos + langostinos + tomate + pimiento + calabacín + perejil.  | Sartén           | **Todo el año**    |
 
-3\. Carne blanca con verduras
+## 3. Carne blanca con verduras
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                            | **Combinación de alimentos**                                        | **Técnica**         | **Temporada**          |
-|--------------------------------------|---------------------------------------------------------------------|---------------------|------------------------|
+| ------------------------------------ | ------------------------------------------------------------------- | ------------------- | ---------------------- |
 | **Pollo mediterráneo**               | Pollo + calabacín + berenjena + tomate cherry + patata.             | Horno               | **Todo el año**        |
 | **Pavo con pisto**                   | Pavo + calabacín + tomate + cebolla + pimiento.                     | Plancha / sartén    | **Todo el año**        |
 | **Pollo con brócoli y arroz**        | Pollo + brócoli + zanahoria + arroz.                                | Plancha / vapor     | **Todo el año**        |
@@ -112,12 +105,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Pavo con coliflor y zanahoria**    | Pavo + coliflor + zanahoria + arroz basmati.                        | Horno / air fryer   | **Invierno**           |
 | **Pollo con calabacín y maíz**       | Pollo + calabacín + tomate + maíz + arroz.                          | Sartén              | **Verano**             |
 
-4\. Pescado blanco y marisco magro con verduras
+## 4. Pescado blanco y marisco magro con verduras
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                              | **Combinación de alimentos**                                  | **Técnica**          | **Temporada**          |
-|----------------------------------------|---------------------------------------------------------------|----------------------|------------------------|
+| -------------------------------------- | ------------------------------------------------------------- | -------------------- | ---------------------- |
 | **Merluza con calabacín y tomate**     | Merluza + calabacín + tomate + cebolla + patata.              | Horno                | **Todo el año**        |
 | **Bacalao con pisto**                  | Bacalao + calabacín + tomate + pimiento + cebolla.            | Horno / plancha      | **Todo el año**        |
 | **Pescadilla con brócoli y zanahoria** | Pescadilla + brócoli + zanahoria + arroz.                     | Vapor / plancha      | **Todo el año**        |
@@ -134,12 +127,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Dorada con tomate y hinojo**         | Dorada + tomate + hinojo + calabacín + patata.                | Horno                | **Todo el año**        |
 | **Pescadilla con menestra**            | Pescadilla + judía verde + zanahoria + guisantes + alcachofa. | Vapor / plancha      | **Invierno-primavera** |
 
-5\. Carne roja con verduras
+## 5. Carne roja con verduras
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                                 | **Combinación de alimentos**                                               | **Técnica**         | **Temporada**          |
-|-------------------------------------------|----------------------------------------------------------------------------|---------------------|------------------------|
+| ----------------------------------------- | -------------------------------------------------------------------------- | ------------------- | ---------------------- |
 | **Ternera con pisto**                     | Ternera magra + calabacín + tomate + pimiento + cebolla.                   | Plancha / sartén    | **Todo el año**        |
 | **Ternera con berenjena y patata**        | Ternera + berenjena + tomate cherry + patata.                              | Plancha / air fryer | **Todo el año**        |
 | **Ternera con brócoli y arroz**           | Ternera + brócoli + zanahoria + arroz.                                     | Sartén / plancha    | **Todo el año**        |
@@ -153,12 +146,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Tacos de ternera y verduras**           | Ternera + pimiento + cebolla + tomate + tortillas de maíz.                 | Plancha             | **Todo el año**        |
 | **Ternera con tomate y calabacín**        | Ternera + tomate + calabacín + mozzarella + patata asada.                  | Horno / plancha     | **Verano**             |
 
-6\. Pescado azul con verduras
+## 6. Pescado azul con verduras
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                           | **Combinación de alimentos**                              | **Técnica**           | **Temporada**        |
-|-------------------------------------|-----------------------------------------------------------|-----------------------|----------------------|
+| ----------------------------------- | --------------------------------------------------------- | --------------------- | -------------------- |
 | **Salmón con espárragos y patata**  | Salmón + espárragos + tomate cherry + patata.             | Horno / air fryer     | **Primavera-verano** |
 | **Salmón con calabacín y arroz**    | Salmón + calabacín + zanahoria + arroz.                   | Plancha               | **Todo el año**      |
 | **Caballa con pisto**               | Caballa + calabacín + tomate + pimiento + cebolla.        | Horno                 | **Verano**           |
@@ -172,12 +165,12 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Salmón con ensalada de quinoa**   | Salmón + quinoa + pepino + tomate + aguacate + canónigos. | Plancha / sin cocción | **Verano**           |
 | **Bonito con calabacín y patata**   | Bonito + calabacín + tomate + cebolla + patata.           | Plancha / horno       | **Verano**           |
 
-7\. Tostas y desayunos salados proteicos
+## 7. Tostas y desayunos salados proteicos
 
 Base pensada para desayunos o medias mañanas. El tipo y cantidad de pan se ajustan al plan.
 
 | **Plato**                               | **Combinación de alimentos**                                          | **Técnica**             | **Temporada**        |
-|-----------------------------------------|-----------------------------------------------------------------------|-------------------------|----------------------|
+| --------------------------------------- | --------------------------------------------------------------------- | ----------------------- | -------------------- |
 | **Tomate y jamón**                      | Pan integral + tomate + jamón serrano + aceite de oliva.              | Tostadora / sin cocción | **Todo el año**      |
 | **Aguacate, huevo y pavo**              | Pan integral + aguacate + huevo + pavo.                               | Plancha / tostadora     | **Todo el año**      |
 | **Queso cottage, pavo e higo**          | Pan integral + queso cottage + pavo + higo.                           | Sin cocción             | **Verano-otoño**     |
@@ -194,12 +187,12 @@ Base pensada para desayunos o medias mañanas. El tipo y cantidad de pan se ajus
 | **Crema de cacahuete y yogur proteico** | Pan integral + crema de cacahuete + yogur proteico espeso + plátano.  | Sin cocción             | **Todo el año**      |
 | **Tofu revuelto y tomate**              | Pan integral + tofu revuelto + tomate + espinacas + aguacate.         | Plancha                 | **Todo el año**      |
 
-8\. Cremas y sopas: versión verano e invierno
+## 8. Cremas y sopas: versión verano e invierno
 
 Pensadas para rotar entre propuestas frías de verano y cremas calientes de otoño-invierno. La proteína se integra como topping o acompañamiento.
 
 | **Plato**                          | **Combinación de alimentos**                                          | **Técnica**             | **Temporada**          |
-|------------------------------------|-----------------------------------------------------------------------|-------------------------|------------------------|
+| ---------------------------------- | --------------------------------------------------------------------- | ----------------------- | ---------------------- |
 | **Gazpacho proteico**              | Tomate + pepino + pimiento + huevo cocido + atún como acompañamiento. | Triturado / sin cocción | **Verano**             |
 | **Crema fría de pepino y yogur**   | Pepino + yogur alto en proteína + limón + salmón ahumado.             | Triturado / sin cocción | **Verano**             |
 | **Crema fría de calabacín**        | Calabacín + yogur o queso fresco batido + pavo en tiras.              | Triturado               | **Verano**             |
@@ -216,12 +209,12 @@ Pensadas para rotar entre propuestas frías de verano y cremas calientes de oto�
 | **Apio, puerro y calabaza**        | Apio + puerro + calabaza + pollo desmenuzado.                         | Cocción / triturado     | **Invierno**           |
 | **Verduras asadas y queso fresco** | Calabaza + zanahoria + tomate + cebolla asados + queso fresco.        | Horno / triturado       | **Otoño-invierno**     |
 
-9\. Proteína vegetal: platos sencillos
+## 9. Proteína vegetal: platos sencillos
 
 Alternativas vegetales sencillas para rotar tofu, tempeh, seitán, soja texturizada y edamame.
 
 | **Plato**                              | **Combinación de alimentos**                                 | **Técnica**           | **Temporada**        |
-|----------------------------------------|--------------------------------------------------------------|-----------------------|----------------------|
+| -------------------------------------- | ------------------------------------------------------------ | --------------------- | -------------------- |
 | **Tofu con arroz y verduras**          | Tofu + arroz + calabacín + zanahoria + champiñón.            | Plancha / sartén      | **Todo el año**      |
 | **Tempeh con batata y brócoli**        | Tempeh + batata + brócoli + zanahoria.                       | Air fryer / horno     | **Todo el año**      |
 | **Soja texturizada boloñesa**          | Soja texturizada + pasta + tomate + zanahoria + calabacín.   | Sartén                | **Todo el año**      |
@@ -235,12 +228,12 @@ Alternativas vegetales sencillas para rotar tofu, tempeh, seitán, soja texturiz
 | **Tofu con garbanzos y espinacas**     | Tofu + garbanzos + espinacas + tomate + zanahoria.           | Sartén                | **Invierno**         |
 | **Tempeh con ensalada de pasta**       | Tempeh + pasta + tomate seco + rúcula + calabacín + nueces.  | Plancha / cocción     | **Primavera-verano** |
 
-10\. Platos únicos con hidrato + proteína + verdura
+## 10. Platos únicos con hidrato + proteína + verdura
 
 Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína a cada paciente.
 
 | **Plato**                              | **Combinación de alimentos**                                                  | **Técnica**           | **Temporada**        |
-|----------------------------------------|-------------------------------------------------------------------------------|-----------------------|----------------------|
+| -------------------------------------- | ----------------------------------------------------------------------------- | --------------------- | -------------------- |
 | **Arroz con pollo y verduras**         | Arroz + pollo + calabacín + zanahoria + pimiento.                             | Sartén                | **Todo el año**      |
 | **Pasta con pavo y pesto ligero**      | Pasta + pavo + calabacín + tomate cherry + pesto.                             | Plancha / cocción     | **Primavera-verano** |
 | **Patata con merluza y pisto**         | Patata + merluza + calabacín + tomate + pimiento.                             | Horno                 | **Todo el año**      |
@@ -257,50 +250,30 @@ Platos de elaboración simple. Ajustar gramajes y raciones de hidrato/proteína 
 | **Patata con bonito y verduras**       | Patata + bonito + tomate + pimiento + cebolla.                                | Guiso ligero / sartén | **Verano**           |
 | **Cuscús con ternera y fruta**         | Cuscús + ternera + calabacín + zanahoria + albaricoque o granada + almendras. | Plancha / cocción     | **Primavera-otoño**  |
 
-Índice rápido por temporada
+## Índice rápido por temporada
 
 Selección práctica para cambiar un plan a una versión más fresca o más cálida sin rehacer toda la estructura.
 
-<table>
-<colgroup>
-<col style="width: 100%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><p><strong>VERANO / PROPUESTAS FRESCAS</strong></p>
-<p>• Ensaladas de arroz, pasta, quinoa o cuscús con pollo, pescado, huevo o legumbre.</p>
-<p>• Gazpacho, crema fría de pepino, calabacín frío, tomate-sandía y melón con jamón.</p>
-<p>• Pescado a la plancha con tomate, pepino, pimiento, calabacín o ensalada de patata.</p>
-<p>• Tostas con tomate, aguacate, queso fresco, pavo, atún o salmón ahumado.</p>
-<p>• Platos con fruta fresca integrada: mango, melocotón, naranja, piña, melón o frutos rojos.</p></th>
-</tr>
-</thead>
-<tbody>
-</tbody>
-</table>
+### Verano / propuestas frescas
 
-<table>
-<colgroup>
-<col style="width: 100%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><p><strong>INVIERNO / PROPUESTAS TEMPLADAS</strong></p>
-<p>• Guisos de lenteja, garbanzo o alubia con carne blanca, pescado o huevo.</p>
-<p>• Cremas de calabaza, calabacín, puerro, champiñón, coliflor o guisantes con proteína añadida.</p>
-<p>• Platos de horno con pollo, pavo, ternera o pescado y patata/batata + verduras.</p>
-<p>• Combinaciones con calabaza, puerro, setas, alcachofa, zanahoria, brócoli o coliflor.</p>
-<p>• Ensaladas templadas de batata, legumbre o quinoa con pollo, pavo, salmón o tofu.</p></th>
-</tr>
-</thead>
-<tbody>
-</tbody>
-</table>
+- Ensaladas de arroz, pasta, quinoa o cuscús con pollo, pescado, huevo o legumbre.
+- Gazpacho, crema fría de pepino, calabacín frío, tomate-sandía y melón con jamón.
+- Pescado a la plancha con tomate, pepino, pimiento, calabacín o ensalada de patata.
+- Tostas con tomate, aguacate, queso fresco, pavo, atún o salmón ahumado.
+- Platos con fruta fresca integrada: mango, melocotón, naranja, piña, melón o frutos rojos.
 
-Matriz rápida de sustituciones
+### Invierno / propuestas templadas
+
+- Guisos de lenteja, garbanzo o alubia con carne blanca, pescado o huevo.
+- Cremas de calabaza, calabacín, puerro, champiñón, coliflor o guisantes con proteína añadida.
+- Platos de horno con pollo, pavo, ternera o pescado y patata/batata + verduras.
+- Combinaciones con calabaza, puerro, setas, alcachofa, zanahoria, brócoli o coliflor.
+- Ensaladas templadas de batata, legumbre o quinoa con pollo, pavo, salmón o tofu.
+
+## Matriz rápida de sustituciones
 
 | **Grupo**                           | **Opciones de rotación**                                                     |
-|-------------------------------------|------------------------------------------------------------------------------|
+| ----------------------------------- | ---------------------------------------------------------------------------- |
 | **Proteína animal magra**           | Pollo · pavo · merluza · pescadilla · bacalao · sepia · langostinos          |
 | **Proteína animal con más grasa**   | Salmón · caballa · sardina · trucha · bonito · ternera según corte           |
 | **Proteína vegetal**                | Tofu · tempeh · seitán · soja texturizada · edamame · legumbres              |

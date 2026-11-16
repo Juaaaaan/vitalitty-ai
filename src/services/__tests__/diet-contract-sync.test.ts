@@ -8,11 +8,15 @@ vi.mock("../../../lib/ai/anthropic", () => ({
 
 import { DIET_EXAMPLES } from "@/constants/diet-examples";
 import {
+  DIET_CONTRACT_SPEC,
   DIET_FRONTMATTER_FIELDS,
   DIET_SECTIONS,
 } from "@/constants/diet-pdf/diet-contract";
 import { parseDietDocument } from "@/services/diet-document-parser";
-import { STATIC_PROMPT_BLOCK } from "@/services/diet-generation-service";
+import {
+  composeStaticPromptBlock,
+  STATIC_PROMPT_BLOCK,
+} from "@/services/diet-generation-service";
 
 /**
  * El contrato lo comparten tres piezas: el prompt que lo exige, los ejemplos
@@ -100,5 +104,41 @@ describe("el prompt exige el contrato", () => {
     expect(STATIC_PROMPT_BLOCK).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     expect(STATIC_PROMPT_BLOCK).not.toMatch(/Date\.now|Math\.random/);
     expect(STATIC_PROMPT_BLOCK).toBe(STATIC_PROMPT_BLOCK);
+  });
+
+  /**
+   * Las instrucciones ya no están solo en el código: la nutricionista puede
+   * editarlas desde el Cerebro. El contrato no es editable, y esta es la alarma
+   * de que sigue entrando aunque el prompt activo no lo mencione — es lo que
+   * impide que una edición desde la UI deje al parser sin nada que reconocer.
+   */
+  it("el contrato entra aunque el prompt activo no lo mencione", () => {
+    const block = composeStaticPromptBlock({
+      promptContent: "Escribe la dieta a tu criterio.",
+      documents: [],
+    });
+
+    for (const section of DIET_SECTIONS) {
+      expect(block).toContain(section.heading);
+    }
+    for (const field of DIET_FRONTMATTER_FIELDS) {
+      expect(block).toContain(field);
+    }
+  });
+
+  it("el contrato entra también cuando hay conocimiento seleccionado", () => {
+    const block = composeStaticPromptBlock({
+      promptContent: "Prompt editado desde el Cerebro.",
+      documents: [{ titulo: "Recetario", contenidoMd: "# Recetario" }],
+    });
+
+    expect(block).toContain(DIET_CONTRACT_SPEC);
+    // Y el conocimiento no se cuela delante del prompt ni detrás de los ejemplos.
+    expect(block.indexOf("# Recetario")).toBeGreaterThan(
+      block.indexOf("Prompt editado desde el Cerebro."),
+    );
+    expect(block.indexOf("## DIETAS DE EJEMPLO")).toBeGreaterThan(
+      block.indexOf("# Recetario"),
+    );
   });
 });

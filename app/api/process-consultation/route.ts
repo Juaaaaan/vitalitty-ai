@@ -6,6 +6,7 @@ import {
   type ExtractionResult,
 } from "@/services/consultation-extraction-service";
 import { loadPatientMemory } from "@/services/patient-context-service";
+import { loadBrainContext } from "@/services/brain-retrieval-service";
 import type {
   PatientMemory,
   PatientMode,
@@ -16,11 +17,20 @@ import {
 } from "@/constants/patient-memory";
 
 /**
- * Tope de duración de la función. 60 s es el valor admitido en todos los planes
- * de Vercel, así que es el suelo seguro. Una generación de varias páginas puede
- * pasarse: medir cuánto tarda de verdad y subirlo si el plan lo permite.
+ * Tope de duración de la función.
+ *
+ * **Requiere un plan de Vercel que admita más de 60 s** (Hobby lo limita a 60 y
+ * rechaza el despliegue con un valor mayor). Era el suelo seguro de todos los
+ * planes, y dejó de bastar: medida en local el 2026-11-14, una generación con el
+ * dictado completo de 4 minutos y el Cerebro sembrado tardó **86 s** de punta a
+ * punta, con el bloque estático en 22,8k tokens. Con los documentos del vault
+ * cruzando por etiqueta el bloque se duplica, así que el margen va a la baja.
+ *
+ * A 60 s esa ejecución se corta en Vercel **después** de haber pagado el
+ * modelo: el `insert` de la consulta ocurre al cerrarse el stream, así que la
+ * dieta no se guarda y el audio no se repite.
  */
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 type StreamEvent =
   | { type: "thinking"; text: string }
@@ -92,6 +102,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // El Cerebro se lee una sola vez, aquí, antes de llamar al modelo: el prompt
+  // activo y los documentos que apliquen a este paciente. El conjunto queda
+  // congelado para toda la generación, así que activar una versión a mitad no
+  // la afecta. Si el Cerebro está vacío o no responde, esto devuelve los valores
+  // por defecto del código en lugar de fallar.
+  const { brain, degraded, reason } = await loadBrainContext(supabase, {
+    memory,
+  });
+
+  if (degraded) {
+    console.warn("Generating with the code defaults:", reason);
+  }
+
   // La extracción arranca ya y corre de fondo: el documento no la espera.
   // Solo se recoge al cerrar el stream, justo antes de escribir en base de datos.
   const extractionPromise: Promise<ExtractionResult | null> =
@@ -113,6 +136,7 @@ export async function POST(request: NextRequest) {
         for await (const event of streamDietGeneration({
           transcription,
           memory,
+          brain,
         })) {
           if (event.type === "text") {
             dietMarkdown += event.text;

@@ -5,6 +5,7 @@ import {
 } from "@/models/assistant/assistant.models";
 import { loadPatientMemory } from "@/services/patient-context-service";
 import { streamDietGeneration } from "@/services/diet-generation-service";
+import { loadBrainContext } from "@/services/brain-retrieval-service";
 import { UnstructuredDietError } from "@/services/diet-pdf-service";
 import { documentLink, loadPdfState, signPdf } from "@/services/diet-pdf-cache";
 import { renderAndStoreDietPdf } from "@/services/diet-pdf-store";
@@ -32,10 +33,16 @@ async function generarDieta(ctx: AssistantToolContext, input: unknown) {
   const memory = await loadPatientMemory(ctx.supabase, pacienteId);
   if (!memory) throw new ToolNotFoundError();
 
+  // Una dieta generada desde el asistente es una generación como cualquier otra:
+  // lee el mismo prompt activo y el mismo conocimiento que la de una consulta
+  // grabada. Si no, el retoque se saldría del Cerebro sin que nadie lo pidiera.
+  const { brain } = await loadBrainContext(ctx.supabase, { memory });
+
   let dietMarkdown = "";
   for await (const event of streamDietGeneration({
     instruction: instrucciones,
     memory,
+    brain,
   })) {
     if (event.type === "text") dietMarkdown += event.text;
   }
