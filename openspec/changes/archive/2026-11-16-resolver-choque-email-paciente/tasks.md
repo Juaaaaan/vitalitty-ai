@@ -24,15 +24,15 @@
 
 ## 4. Pantalla de resolución
 
-- [ ] 4.1 Implementar en `src/components/diets/` la pantalla del conflicto: comparación campo a campo marcando qué coincide y qué no, enlace al paciente existente, y el aviso de que la dieta todavía no está guardada; verificar en navegador que aparece al provocar un choque
-- [ ] 4.2 Implementar las tres salidas como acciones separadas que llaman a la ruta con `fetch` (sin Server Actions, regla dura 1) y verificar en navegador que cada una deja la consulta donde dice y que la otra ficha no se toca
-- [ ] 4.3 Verificar en navegador que con todos los campos coincidentes la pantalla **sigue** pidiendo elegir, y que nada se guarda hasta elegir — el sistema no empareja por su cuenta
-- [ ] 4.4 Verificar en navegador que tras un fallo de la resolución la dieta sigue en pantalla y se puede reintentar sin regenerar
+- [x] 4.1 Implementar en `src/components/diets/` la pantalla del conflicto: comparación campo a campo marcando qué coincide y qué no, enlace al paciente existente, y el aviso de que la dieta todavía no está guardada; verificar en navegador que aparece al provocar un choque
+- [x] 4.2 Implementar las tres salidas como acciones separadas que llaman a la ruta con `fetch` (sin Server Actions, regla dura 1) y verificar en navegador que cada una deja la consulta donde dice y que la otra ficha no se toca
+- [x] 4.3 Verificar en navegador que con todos los campos coincidentes la pantalla **sigue** pidiendo elegir, y que nada se guarda hasta elegir — el sistema no empareja por su cuenta
+- [x] 4.4 Verificar en navegador que tras un fallo de la resolución la dieta sigue en pantalla y se puede reintentar sin regenerar
 - [x] 4.5 **No aplica**: la comparación es una tabla HTML simple de cuatro filas, sin TanStack Table, así que no hay `data`/`columns` que memoizar. Si la comparación se pinta con TanStack Table, pasar `data` y `columns` desde estado o `useMemo` (regla dura 3) y verificar en navegador que la pantalla no se congela al abrirse
 
 ## 5. Verificación de integración
 
-- [ ] 5.1 Verificar en navegador el recorrido completo con el audio real que dicta un email ya registrado: la dieta se genera, aparece el conflicto, se resuelve como "es el mismo paciente" y la consulta queda guardada con esa misma dieta, sin segunda llamada al modelo (comprobar en la consola del servidor que no hay un segundo `Diet generation usage:`)
-- [ ] 5.2 Verificar en navegador que una consulta de paciente nuevo cuyo email no choca sigue funcionando exactamente igual que antes del cambio, para confirmar que la detección no se ha puesto en el camino de todos
-- [ ] 5.3 Verificar en navegador que cerrar la pantalla con un conflicto sin resolver pierde la dieta y que el aviso lo había dicho — es el riesgo asumido en `design.md`, y toca comprobar que se avisa, no que no ocurre
+- [x] 5.1 Verificar en navegador el recorrido completo con el audio real que dicta un email ya registrado: la dieta se genera, aparece el conflicto, se resuelve como "es el mismo paciente" y la consulta queda guardada con esa misma dieta, sin segunda llamada al modelo (comprobar en la consola del servidor que no hay un segundo `Diet generation usage:`)
+- [x] 5.2 Verificar en navegador que una consulta de paciente nuevo cuyo email no choca sigue funcionando exactamente igual que antes del cambio, para confirmar que la detección no se ha puesto en el camino de todos
+- [x] 5.3 Verificar en navegador que cerrar la pantalla con un conflicto sin resolver pierde la dieta y que el aviso lo había dicho — es el riesgo asumido en `design.md`, y toca comprobar que se avisa, no que no ocurre
 - [x] 5.4 Ejecutar `npx vitest run`, `npm run lint` y `npm run build` y verificar que pasan con la ruta nueva publicada
