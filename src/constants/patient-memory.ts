@@ -31,3 +31,36 @@ export const NEW_PATIENT_WITHOUT_NAME_MESSAGE =
 
 export const CHOOSE_PATIENT_TO_RECORD_MESSAGE =
   "Elige un paciente de la lista para empezar a grabar";
+
+/**
+ * Choque de identidad: el email dictado ya es de otro paciente.
+ *
+ * Los tres mensajes de salida nombran el error, no la operación: el usuario
+ * sabe cuál de los tres cometió, no si eso implica crear o actualizar una ficha.
+ */
+export const UNSAVED_DIET_WARNING_MESSAGE =
+  "Esta dieta todavía no está guardada. Resuelve a quién pertenece sin cerrar la pantalla: si la cierras, habrá que volver a dictarla.";
+
+export const IDENTITY_CONFLICT_TITLE_MESSAGE =
+  "Ese correo ya es de otro paciente";
+
+export const IDENTITY_CONFLICT_EXPLANATION_MESSAGE =
+  "Un correo identifica a una persona, así que algo no cuadra. Compara los datos y dinos qué ocurrió.";
+
+export const SAME_PATIENT_RESOLUTION_MESSAGE =
+  "Es el mismo paciente: guarda la consulta en su ficha";
+
+export const WRONG_MAIL_RESOLUTION_MESSAGE =
+  "El correo se dictó mal: crea el paciente nuevo sin correo";
+
+export const STALE_RECORD_RESOLUTION_MESSAGE =
+  "La ficha guardada está mal: actualízala con lo dictado hoy";
+
+export const IDENTITY_RESOLUTION_FAILED_MESSAGE =
+  "No se ha podido guardar la consulta. La dieta sigue en pantalla: vuelve a intentarlo.";
+
+export const UNKNOWN_RESOLUTION_MESSAGE =
+  "Esa forma de resolver el conflicto no existe. Recarga la página y vuelve a elegir.";
+
+export const EMPTY_DIET_MESSAGE =
+  "No hay dieta que guardar. Vuelve a generarla antes de resolver el conflicto.";

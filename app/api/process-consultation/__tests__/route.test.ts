@@ -87,6 +87,7 @@ function stubTable(overrides: Record<string, unknown> = {}) {
     select: () => chain,
     eq: () => chain,
     not: () => chain,
+    ilike: () => chain,
     order: () => chain,
     limit: () => chain,
     update: () => chain,
@@ -403,5 +404,159 @@ describe("POST /api/process-consultation", () => {
     expect(await response.json()).toEqual({ error: PATIENT_NOT_FOUND_MESSAGE });
     expect(streamDietGeneration).not.toHaveBeenCalled();
     expect(extractConsultationData).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Un email identifica a una persona, así que el dictado que ya pertenece a
+   * otro paciente significa un error del usuario, no un duplicado legítimo. Lo
+   * que no puede pasar es lo de antes: reventar el `insert` **después** de
+   * pagar la generación y tirar la dieta.
+   */
+  describe("choque de identidad por email", () => {
+    const DUENO = {
+      id: "p-existente",
+      name_surnames: "Jesús Arsenio García García",
+      mail: "deportesperales@gmail.com",
+      age: 36,
+      phone: "657423574",
+    };
+
+    /** Supabase que apunta cada escritura, para poder exigir que no hubo. */
+    function supabaseConDueno(dueno: unknown) {
+      const writes: { table: string; op: string }[] = [];
+
+      supabase.from.mockImplementation((table: string) => {
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          not: () => chain,
+          ilike: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          update: () => {
+            writes.push({ table, op: "update" });
+            return chain;
+          },
+          insert: () => {
+            writes.push({ table, op: "insert" });
+            return chain;
+          },
+          single: async () => ({
+            data: { id: "consultation-1", diet_version: 1 },
+            error: null,
+          }),
+          maybeSingle: async () =>
+            table === "patients"
+              ? { data: dueno, error: null }
+              : { data: null, error: null },
+        };
+        return chain;
+      });
+
+      return writes;
+    }
+
+    it("con el email ya ocupado no crea paciente ni consulta, y no toca la otra ficha", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: {
+          name_surnames: "Jesús Arsenio García García",
+          mail: "deportesperales@gmail.com",
+          age: 36,
+        },
+        consultation: {},
+      });
+      const writes = supabaseConDueno(DUENO);
+
+      const response = await POST(requestWith(NEW));
+      const events = await readEvents(response);
+
+      expect(response.status).toBe(200);
+      expect(writes).toEqual([]);
+      expect(events.some((event) => event.type === "done")).toBe(false);
+      expect(events.at(-1).type).toBe("identity-conflict");
+    });
+
+    it("el conflicto lleva la comparación y no la dieta", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: {
+          name_surnames: "Jesús Arsenio García García",
+          mail: "deportesperales@gmail.com",
+          age: 41,
+        },
+        consultation: {},
+      });
+      supabaseConDueno(DUENO);
+
+      const events = await readEvents(await POST(requestWith(NEW)));
+      const conflict = events.at(-1);
+
+      expect(conflict.conflict.existingPatientId).toBe("p-existente");
+      expect(JSON.stringify(conflict)).not.toContain("# Plan");
+      expect(conflict.conflict.fields).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "nameSurnames",
+            status: "coincide",
+          }),
+          expect.objectContaining({ field: "age", status: "difiere" }),
+        ]),
+      );
+    });
+
+    it("sin email dictado no hay conflicto: la consulta se guarda", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: { name_surnames: "Paciente Sin Correo" },
+        consultation: {},
+      });
+      supabaseConDueno(DUENO);
+
+      const events = await readEvents(await POST(requestWith(NEW)));
+
+      expect(events.at(-1).type).toBe("done");
+    });
+
+    it("un email vacío tampoco dispara el conflicto", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: { name_surnames: "Paciente", mail: "   " },
+        consultation: {},
+      });
+      supabaseConDueno(DUENO);
+
+      const events = await readEvents(await POST(requestWith(NEW)));
+
+      expect(events.at(-1).type).toBe("done");
+    });
+
+    it("si el email no es de ningún paciente propio, se crea la ficha", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: { name_surnames: "Paciente", mail: "nuevo@vitalitty.test" },
+        consultation: {},
+      });
+      // RLS ya acota a los pacientes del usuario: el de otra nutricionista no
+      // aparece en esta búsqueda, así que no hay dueño.
+      const writes = supabaseConDueno(null);
+
+      const events = await readEvents(await POST(requestWith(NEW)));
+
+      expect(events.at(-1).type).toBe("done");
+      expect(writes).toEqual(
+        expect.arrayContaining([{ table: "patients", op: "insert" }]),
+      );
+    });
+
+    it("un paciente existente no choca nunca, aunque el audio dicte ese email", async () => {
+      extractConsultationData.mockResolvedValue({
+        patient: {
+          name_surnames: "Jesús Arsenio García García",
+          mail: "deportesperales@gmail.com",
+        },
+        consultation: {},
+      });
+      supabaseConDueno(DUENO);
+
+      const events = await readEvents(await POST(requestWith(EXISTING)));
+
+      expect(events.at(-1).type).toBe("done");
+    });
   });
 });

@@ -576,3 +576,21 @@ Con la migración aplicada y los prompts sembrados, `npm run dev` y:
     `cacheReadInputTokens: 0` y `cacheCreationInputTokens` alto; la siguiente,
     otra vez cache-hit. Anota también el tiempo total frente a los 59,6 s del
     peor caso conocido, que es lo que dice cuánto margen come el retrieval.
+
+## ✅ 12. Limpieza posterior (2026-11-16)
+
+Lo que la verificación dejó por el camino, retirado una vez el cambio estaba
+mergeado:
+
+- **El documento de prueba `prueba-verificacion-8-2`** se borró desde la propia
+  pantalla, con el botón nuevo: sirvió además como comprobación real del
+  borrado contra la base. De 7 a 6 documentos, de 8 a 6 versiones, 0 huérfanas.
+- **El paciente de prueba de 10.1** y sus 6 dietas de verificación, borrados por
+  id. Importaba hacerlo por id y no por nombre: la extracción le había puesto el
+  del paciente real, así que por nombre se habrían parecido demasiado. El real
+  conserva sus 29 consultas.
+- **El worktree `cerebro-conocimiento-dinamico`**, eliminado. Vivía bajo
+  `.claude/`, que no está excluido de eslint ni de vitest, así que el repo se
+  linteaba y se testeaba a sí mismo dos veces: `npm run lint` pasó de **25.537
+  problemas a 6 avisos** y los tests dejaron de duplicarse. Si en el futuro
+  vuelve a haber un worktree ahí, conviene excluir `.claude/` en ambas configs.
