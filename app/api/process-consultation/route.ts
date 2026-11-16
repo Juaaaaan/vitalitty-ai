@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
+import {
+  buildIdentityConflict,
+  normalizeMail,
+} from "@/services/patient-identity-service";
+import type { PatientIdentityConflict } from "@/models/patient-identity/identity-conflict.models";
+
 import { streamDietGeneration } from "@/services/diet-generation-service";
 import {
   extractConsultationData,
@@ -42,6 +48,24 @@ type StreamEvent =
       patientId: string;
       patientName: string;
       dietVersion: number | null;
+    }
+  /**
+   * El email dictado ya es de otro paciente, así que no se escribe nada y la
+   * decisión pasa al usuario. La petición termina en 200: la generación fue
+   * bien; lo que falta es saber de quién es la dieta. No lleva el documento —
+   * ya está en pantalla— ni nada clínico: solo identifica a una persona.
+   */
+  | {
+      type: "identity-conflict";
+      conflict: PatientIdentityConflict;
+      /**
+       * Lo extraído de esta consulta, al lado del conflicto y no dentro: la
+       * comparación identifica a una persona y nada más, pero la consulta hace
+       * falta entera para guardarla al resolver. Sin esto se perderían kcal,
+       * peso y resumen en cada conflicto. No expone nada nuevo: el cliente ya
+       * tiene la dieta, que es mucho más que esto.
+       */
+      extraction: ExtractionResult;
     };
 
 export async function POST(request: NextRequest) {
@@ -164,7 +188,22 @@ export async function POST(request: NextRequest) {
           fallbackName: memory?.personal.name_surnames ?? "",
         });
 
-        send({ type: "done", ...saved });
+        if (saved.kind === "conflict") {
+          send({
+            type: "identity-conflict",
+            conflict: saved.conflict,
+            extraction: saved.extraction,
+          });
+        } else {
+          const { consultationId, patientId, patientName, dietVersion } = saved;
+          send({
+            type: "done",
+            consultationId,
+            patientId,
+            patientName,
+            dietVersion,
+          });
+        }
       } catch (error) {
         // La generación falló a mitad: no se escribe una consulta con dieta
         // parcial. El texto ya emitido se queda en pantalla del lado del cliente.
@@ -207,9 +246,15 @@ type PersistArgs = {
  * Si la extracción falló, `extraction` es null: la consulta se guarda igual con
  * el documento, que es la fuente de verdad, sin campos estructurados ni resumen.
  *
- * No hay emparejado implícito: un paciente nuevo crea siempre su fila (aunque
- * su email ya exista) y uno existente reutiliza siempre la elegida. La versión
- * de la dieta la asigna la base de datos al insertar.
+ * No hay emparejado implícito: un paciente existente reutiliza siempre la ficha
+ * elegida, y uno nuevo crea la suya. Con una excepción que la base de datos
+ * impone y el contrato ignoraba: `unique_patient_email_per_user`. Un email
+ * identifica a una persona, así que si el dictado ya pertenece a otro paciente
+ * **no se escribe nada** y se devuelve un conflicto para que lo resuelva quien
+ * puede, que es el usuario. Antes se intentaba el `insert` igualmente y la
+ * excepción tiraba la dieta ya generada.
+ *
+ * La versión de la dieta la asigna la base de datos al insertar.
  */
 async function persist({
   supabase,
@@ -241,6 +286,21 @@ async function persist({
     if (!patient?.name_surnames) {
       throw new Error(NEW_PATIENT_WITHOUT_NAME_MESSAGE);
     }
+
+    // Antes de escribir, no después de que reviente: se busca al dueño del
+    // email. Mirar el código `23505` del `insert` también funcionaría, pero
+    // dejaría la decisión colgando del nombre de una restricción creada fuera
+    // del repo, y haría falta esta consulta igualmente para la comparación.
+    const owner = await findPatientByMail(supabase, patient.mail);
+    if (owner) {
+      return {
+        kind: "conflict" as const,
+        conflict: buildIdentityConflict(owner, patient),
+        // Llegar aquí exige que la extracción trajera nombre, así que existe.
+        extraction: extraction!,
+      };
+    }
+
     const { data: newPatient, error } = await supabase
       .from("patients")
       .insert({ ...patient, created_by: userId })
@@ -273,9 +333,33 @@ async function persist({
   }
 
   return {
+    kind: "saved" as const,
     consultationId: record.id as string,
     patientId: patientId as string,
     patientName: patient?.name_surnames || fallbackName,
     dietVersion: (record.diet_version as number | null) ?? null,
   };
+}
+
+/**
+ * El paciente del usuario que ya tiene ese email, si lo hay.
+ *
+ * Sin email no hay choque posible: una consulta que no lo dicta sigue su camino.
+ * RLS acota la búsqueda a los pacientes propios, así que el email de otra
+ * nutricionista no bloquea nada aquí.
+ */
+async function findPatientByMail(
+  supabase: PersistArgs["supabase"],
+  mail: string | null | undefined,
+) {
+  const normalized = normalizeMail(mail);
+  if (!normalized) return null;
+
+  const { data } = await supabase
+    .from("patients")
+    .select("id, name_surnames, mail, age, phone")
+    .ilike("mail", normalized)
+    .maybeSingle();
+
+  return data ?? null;
 }
